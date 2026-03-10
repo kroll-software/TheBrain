@@ -13,9 +13,12 @@ public class BookTrainer
 
     SnnTokenizer Tokenizer;
 
+    int NumInputNeurons;
+
     public BookTrainer(SnnModel model, int numInputNeurons)
     {
         _model = model;
+        NumInputNeurons = numInputNeurons;
         Tokenizer = new SnnTokenizer(numInputNeurons);
     }
 
@@ -25,7 +28,9 @@ public class BookTrainer
         files.Shuffle();
 
         int tokenCount = 0;
-        int stepCount = 0;        
+        int stepCount = 0;
+
+        int neuronCount = _model.NeuronCount;
 
         while (true)
         {
@@ -35,27 +40,31 @@ public class BookTrainer
                 {
                     int[] tokenNeuronIds = Tokenizer.EncodeAndMap(line);
                     
-                    foreach (var neuronId in tokenNeuronIds)
+                    for (int i = 0; i < tokenNeuronIds.Length - 1; i++)                    
                     {
+                        int tokenID = tokenNeuronIds[i];
+                        int nextTokenID = tokenNeuronIds[i + 1];
                         // 1. Impuls geben
-                        _model.FireNeuron(neuronId);
+                        _model.FireNeuron(tokenID);
+                        _model.FireNeuron(neuronCount - NumInputNeurons + nextTokenID);
                         tokenCount++;
                         
                         // 2. Propagations-Phase
                         // Wir simulieren hier z.B. 10 Steps pro Token, 
                         // damit die Welle Zeit hat, sich auszubreiten.
-                        for (int i = 0; i < 1; i++) 
+                        for (int k = 0; k < 1; k++) 
                         {
                             _model.Step(1f, 1);
+                            Thread.Sleep(1);
                             stepCount++;
                         }
 
-                        /*** ***/
+                        /***
                         //float avgWeight = _model.GetAverageSynapseWeight();
                         var test = _model.GetNeuronPotentialsForDrawing();                        
                         int Fire = test.Count(t => t.State == 1);
                         int autoFire = test.Count(t => t.State == 2);
-                        int hasPotential = test.Count(t => t.Potential >= 0.1);
+                        int hasPotential = test.Count(t => t.Output >= 0.1);
                         int hasDebug = test.Count(t => t.Debug == 13);
 
                         Debug.Assert(hasDebug == 0);
@@ -65,6 +74,7 @@ public class BookTrainer
                         //Debug.WriteLine($"Tokens: {tokenCount}, Step: {stepCount}, Fire: {Fire}, AutoFire: {autoFire}, HasPotential: {hasPotential}, Synapses: {synapseCount}, Avg-Weight: {avgWeight}, hasDebug: {hasDebug}");
                         //Debug.WriteLine($"Tokens: {tokenCount}, Step: {stepCount}, Fire: {Fire}, AutoFire: {autoFire}, HasPotential: {hasPotential}, Synapses: {synapseCount}, Avg-Weight: {avgWeight}");
                         Debug.WriteLine($"Tokens: {tokenCount}, Step: {stepCount}, Fire: {Fire}, AutoFire: {autoFire}, HasPotential: {hasPotential}, Synapses: {synapseCount}");
+                        ***/
                         
                     }
                 }

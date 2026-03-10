@@ -71,8 +71,11 @@ public static class SnnKernels {
 
             if (n.State > 0)
             {                
-                n.FireCycleRemaining = 8;                
-                n.Output = 1;
+                n.FireCycleRemaining = 8;
+                if (n.Type == 0)
+                    n.Output = 1;
+                else
+                    n.Output = -1;
                 n.Input = 0;
 
                 // Begeisterung baut sich auf
@@ -366,6 +369,7 @@ public static class SnnKernels {
                             AttemptSynapseGrowth(
                                 ref receiver,
                                 source.ID,
+                                neurons,
                                 watermarkBuffer,
                                 synapsePool);
                         }
@@ -453,7 +457,7 @@ public static class SnnKernels {
 
                                         // 3. Wachstum versuchen
                                         // Wir übergeben das Neuron und den aktuellen sourceIdx
-                                        AttemptSynapseGrowth(ref receiver, sourceIdx, watermarkBuffer, synapsePool);
+                                        AttemptSynapseGrowth(ref receiver, sourceIdx, neurons, watermarkBuffer, synapsePool);
                                     }                                    
                                 }
 
@@ -492,11 +496,21 @@ public static class SnnKernels {
     private static void AttemptSynapseGrowth(
         ref NeuronState receiver, 
         int sourceIdx, 
+        ArrayView1D<NeuronState, Stride1D.Dense> allNeurons, // Neu hinzugefügt
         ArrayView1D<int, Stride1D.Dense> watermarkBuffer, // Dein globaler Pool-Zähler
         ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {   
         if (receiver.NewSynapseCounter > 0)
             return;
+
+        // PRÜFUNG: Gibt es schon eine Verbindung in die Gegenrichtung?
+        if (HasExistingReverseConnection(receiver.ID, sourceIdx, allNeurons, synapsePool))
+        {
+            // Falls ja: Abbruch und aus der Kandidatenliste werfen, 
+            // damit wir es nicht sofort wieder versuchen.
+            RemoveFromCandidateList(ref receiver, sourceIdx);
+            return;
+        }
 
         // In AttemptSynapseGrowth:
         int poolIdx = Atomic.Add(ref watermarkBuffer[0], 1);
@@ -515,6 +529,30 @@ public static class SnnKernels {
             receiver.Energy = 0;
             RemoveFromCandidateList(ref receiver, sourceIdx);
         }        
+    }
+
+    private static bool HasExistingReverseConnection(
+        int myID, 
+        int potentialSourceIdx, 
+        ArrayView1D<NeuronState, Stride1D.Dense> allNeurons,
+        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
+    {
+        // Wir schauen in die Synapsen-Liste des potenziellen Senders
+        int currentSynIdx = allNeurons[potentialSourceIdx].FirstSynapseIndex;
+
+        // Wir laufen die Kette der Synapsen ab, die vom Source-Neuron ausgehen
+        // Achtung: Begrenze die Schleife, um Endlosschleifen bei Fehlern zu vermeiden
+        int safetyCounter = 0;
+        while (currentSynIdx != -1 && safetyCounter < 1000)
+        {
+            if (synapsePool[currentSynIdx].TargetEntityID == myID)
+            {
+                return true; // Verbindung B -> A existiert bereits!
+            }
+            currentSynIdx = synapsePool[currentSynIdx].NextIndex;
+            safetyCounter++;
+        }
+        return false;
     }
     
     private static bool ReinforceExistingSynapse(
@@ -609,9 +647,10 @@ public static class SnnKernels {
     ArrayView1D<NeuronRenderState, Stride1D.Dense> target)
     {
         var s = source[index];
-        target[index] = new NeuronRenderState {
-            Potential = s.Input,            
+        target[index] = new NeuronRenderState {            
+            Type = s.Type,
             State = s.State,
+            Output = s.Output,
             PosX = s.PosX,
             PosY = s.PosY,
             PosZ = s.PosZ,

@@ -97,11 +97,13 @@ public class SnnModel : DisposableObject
 
     public void BuildNetwork(BrainConfiguration config)
     {        
+        Iteration = 0;
+
         NeuronCount = config.NumInputClasses * config.NumInputClassNeurons
             + config.NumHiddenLayers * config.NeuronsPerHiddenLayer
             + config.NumOutputClasses * config.NumOutputClassNeurons;        
 
-        int gridDim = 64; 
+        int gridDim = 64;
         float voxelSize = 10.0f; // Ein Neuron pro 10 Einheiten
     
         AutoConfigureMetrics(gridDim, voxelSize);        
@@ -312,12 +314,66 @@ public class SnnModel : DisposableObject
             case "Hidden":
                 maxSynapses = config.HiddenLayerMaxSynapses;
                 break;
-        }
+        }        
+
+        Random rnd = new Random();        
         
         // Einfache, gleichmäßige Verteilung im gesamten Würfel [0, WorldSize]
         for (int i = 0; i < count; i++)
         {
             var entity = World.CreateEntity(Neurons);            
+
+            float posX, posY, posZ;
+            int neuronsPerRow = (int)WorldSize;
+
+            switch (layerType)
+            {
+                case "Input":
+                    // Platzierung oben: X verteilt sich, Y ist nah bei 0
+                    posX = i % neuronsPerRow; 
+                    posY = (i / neuronsPerRow) * 2.0f + 1f; // Mehrere Zeilen mit 2f Abstand
+                    posZ = WorldSize / 2.0f;           // Mittig in der Tiefe                    
+                    break;
+
+                case "Output":
+                    // Platzierung unten: X verteilt sich, Y ist nah bei WorldSize
+                    posX = i % neuronsPerRow;
+                    // Wir ziehen die Zeilen von der Unterkante nach oben ab
+                    posY = WorldSize - ((i / neuronsPerRow) * 2.0f -1f); 
+                    posZ = WorldSize / 2.0f;
+                    break;
+
+                default: // Hidden
+                    posX = (float)rand.NextDouble() * WorldSize;
+                    posY = (float)rand.NextDouble() * WorldSize;
+                    posZ = (float)rand.NextDouble() * WorldSize;
+                    break;
+            }
+
+            // Axon-Platzierung mit Mindestabstand
+            float axonX, axonY, axonZ;
+            float minDistance = voxelSize * 1.1f; // Mindestens über die Zellgrenze hinaus
+            float minDistanceSq = minDistance * minDistance;
+            
+            int attempts = 0;
+            do
+            {
+                axonX = (float)rand.NextDouble() * WorldSize;
+                axonY = (float)rand.NextDouble() * WorldSize;
+                axonZ = (float)rand.NextDouble() * WorldSize;
+                attempts++;
+
+                // Berechne Distanzquadrat zum Soma (Pos)
+                float dx = axonX - posX;
+                float dy = axonY - posY;
+                float dz = axonZ - posZ;
+                float distSq = dx * dx + dy * dy + dz * dz;
+
+                // Wenn Abstand groß genug oder wir zu viele Versuche haben (Notbremse)
+                if (distSq >= minDistanceSq || attempts > 100)
+                    break;
+
+            } while (true);
 
             var state = new NeuronState
             {
@@ -326,14 +382,15 @@ public class SnnModel : DisposableObject
                 ConnectionRadius = 15.0f, 
                 IsAutoFireActive = (layerType == "Hidden") ? (byte)1 : (byte)0,
                 MaxSynapseLimit = maxSynapses,
+                Type = (layerType == "Hidden") ? (rnd.NextDouble() > 0.8) ? (byte)1 : (byte)0 : (byte)0,                
 
-                PosX = (float)rand.NextDouble() * WorldSize,
-                PosY = (float)rand.NextDouble() * WorldSize,
-                PosZ = (float)rand.NextDouble() * WorldSize,
+                PosX = posX,
+                PosY = posY,
+                PosZ = posZ,
                 
-                AxonX = (float)rand.NextDouble() * WorldSize,
-                AxonY = (float)rand.NextDouble() * WorldSize,
-                AxonZ = (float)rand.NextDouble() * WorldSize,                
+                AxonX = axonX,
+                AxonY = axonY,
+                AxonZ = axonZ,
                 
                 // Rest der Initialisierung...
                 FirstSynapseIndex = -1,
@@ -345,9 +402,12 @@ public class SnnModel : DisposableObject
 
     private int _globalSeed = 0;
 
+    public long Iteration {get; private set;}
+
     public void Step(float energyRecovery, int fireCycleDuration)
     {
         _globalSeed++;
+        Iteration++;
         
         // 1. UpdateNeuronStep: Alle Neuronen verarbeiten
         // Wir starten den Kernel und legen ihn in den Stream

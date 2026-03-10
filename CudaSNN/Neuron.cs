@@ -38,6 +38,9 @@ public struct NeuronState : IComponent
 
     // Integers / Bytes
     public int FireCycleRemaining;
+
+    public byte Type; // 0: Excitory, 1: Inhibitory
+
     public byte State; // 0: Idle, 1: Fire, 2: AutoFire
 
     // RADIKALER WECHSEL: Keine bools mehr im Struct!
@@ -51,8 +54,9 @@ public struct NeuronState : IComponent
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
 public struct NeuronRenderState
 {
-    public float Potential;    
-    public byte State;    
+    public byte Type;
+    public byte State;
+    public float Output;        
     public float PosX;
     public float PosY;
     public float PosZ;

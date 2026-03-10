@@ -103,9 +103,9 @@ namespace TheBrain
 				OutputLayerMaxSynapses = 1024
 			});
 
-			//SNNWidget.SNN = SNN;
+			SNNWidget.SNN = SNN;
 			
-			ShowStatus("Starting Trainung ...", false);
+			ShowStatus("Training ...", false);
 			
 			Task.Run(() => {
 				BookTrainer trainer = new BookTrainer(SNN, 16384);
