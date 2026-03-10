@@ -1,0 +1,24 @@
+# Standard: Git erkennt Textdateien automatisch
+* text=auto
+
+# C# Quellcode: Im Repo immer LF, lokal je nach System (CRLF auf Win, LF auf Linux)
+*.cs text diff=csharp
+*.sln text eol=crlf
+*.csproj text
+*.xaml text
+*.xml text
+*.config text
+*.json text
+
+# Assets & Binaries: Diese dürfen NIEMALS verändert werden
+*.png binary
+*.jpg binary
+*.ico binary
+*.ttf binary
+*.otf binary
+*.dll binary
+*.exe binary
+*.so binary
+
+# Dokumentation
+*.md text

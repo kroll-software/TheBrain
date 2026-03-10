@@ -1,0 +1,58 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+
+    <OutputType>WinExe</OutputType>
+    <UseAppHost>true</UseAppHost>    
+
+    <RootNamespace>TheBrain</RootNamespace>
+    <AssemblyName>TheBrain</AssemblyName>
+
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks> 
+
+    <!-- Signing wie früher -->
+    <SignAssembly>true</SignAssembly>
+    <AssemblyOriginatorKeyFile>..\SummerGUI\SummerGUI.snk</AssemblyOriginatorKeyFile>
+
+    <!-- Alte AssemblyInfo.cs selbst haben → keine Auto-Generierung -->
+    <GenerateAssemblyInfo>false</GenerateAssemblyInfo>
+
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>disable</Nullable>
+  </PropertyGroup>
+
+  <ItemGroup>    
+    <None Include="Assets\**\*" CopyToOutputDirectory="PreserveNewest" />    
+    <None Include="LICENSE" />    
+  </ItemGroup>  
+
+  <ItemGroup>    
+    <PackageReference Include="ILGPU" Version="1.5.3" />    
+    <PackageReference Include="ILGPU.Algorithms" Version="1.5.3" />    
+    <PackageReference Include="ManagedCuda" Version="10.0.0" />    
+    <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />    
+    <PackageReference Include="OpenTK" Version="4.9.4" />    
+    <PackageReference Include="System.Drawing.Primitives" Version="4.3.0" />    
+    <PackageReference Include="Tiktoken" Version="2.2.0" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Projektverweise modern -->
+    <ProjectReference Include="..\SummerGUI.Charting\SummerGUI.Charting.csproj" />
+    <ProjectReference Include="..\KS.Foundation\KS.Foundation.csproj" />
+    <ProjectReference Include="..\SummerGUI\SummerGUI.csproj" />    
+  </ItemGroup>
+
+  <ItemGroup>
+    <!-- Automatische Code-Einbindung -->            
+    <None Include="LICENSE" />
+    <None Include="SampleData\**\*" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <Folder Include="CudaSNN/" />
+    <Folder Include="SnnWidget/" />
+  </ItemGroup>
+
+</Project>

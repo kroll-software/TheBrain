@@ -1,0 +1,35 @@
+# --- .NET / C# Spezifisch ---
+[Bb]in/
+[Oo]bj/
+out/
+publish/
+
+# --- VS-Code Spezifisch ---
+.vscode/
+.history/
+*.code-workspace
+
+# --- User-spezifische Dateien ---
+*.user
+*.userosscache
+*.sln.docstates
+
+# --- Pakete & Caches ---
+.nuget/
+*.nuget.props
+*.nuget.targets
+# Die eigentlichen DLLs werden über NuGet geladen, nicht ins Git
+packages/
+
+# --- Betriebssysteme ---
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# --- Backup / Temporär ---
+*.bak
+*.tmp
+*.log
+
+# --- Speziell für SummerGUI / OpenTK (falls Logs oder temporäre Shader entstehen) ---
+shader_cache/
