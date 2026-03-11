@@ -30,7 +30,7 @@ namespace TheBrain
 
 		public SnnWidget SNNWidget {get; private set; }
 
-		public MainForm () : base("TheBrain (Kroll-Software)", 800, 600)
+		public MainForm () : base("The Brain (Kroll-Software)", 800, 600)
 		{
 		}
 
@@ -49,9 +49,11 @@ namespace TheBrain
 
 			m_CmdPrevious = new ToolBarCircleButton ("previous", "Previous", "Previous_30px.png");
 			MenuPanel.ToolBar.AddChild (m_CmdPrevious);
+			m_CmdPrevious.Margin = new Padding(4);
 
 			m_CmdNext = new ToolBarCircleButton ("next", "Next", "Next_30px.png");
 			MenuPanel.ToolBar.AddChild (m_CmdNext);
+			m_CmdNext.Margin = new Padding(4);
 
 			m_Separator1 = new ToolBarSeparator ("separator1");
 			MenuPanel.ToolBar.AddChild (m_Separator1);

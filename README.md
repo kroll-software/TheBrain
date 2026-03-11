@@ -16,6 +16,19 @@ Welcome to **The Brain**! This is an experimental, high-performance **Spiking Ne
 * **Self-Wiring Capabilities:** Includes built-in mechanisms for structural plasticity and synapse candidate ranking.
 
 
+---
+
+## 💻 System Requirements
+
+To ensure smooth simulation and enough memory for the neural pool, **The Brain** requires:
+
+* **GPU:** A CUDA-compatible graphics card (NVIDIA).
+* **VRAM:** At least **8 GB** of dedicated video memory.
+* **OS:** Windows 10/11 or Ubuntu 20.04+ (tested with VS-Code).
+
+
+
+> 🚀 **Note:** While the engine is highly optimized, the large input/output layers and the 400k-neuron hidden pool thrive on fast VRAM and high CUDA core counts.
 
 ---
 
