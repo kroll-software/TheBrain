@@ -407,6 +407,7 @@ public class SnnModel : DisposableObject
 
             var state = new NeuronState
             {
+                ID = startIdx + i,
                 Threshold = 1,
                 Energy = 1,
                 ConnectionRadius = 15.0f, 
@@ -559,6 +560,7 @@ public class SnnModel : DisposableObject
     private MemoryBuffer1D<int, Stride1D.Dense> _synapseWatermarkBuffer;
 
     MemoryBuffer1D<SynapseData, Stride1D.Dense> synapsePool;
+    public long SynapsePoolCapacity => synapsePool.Length;
     MemoryBuffer1D<int, Stride1D.Dense> sortedNeuronIDs;    
 
     public int GetDynamicSynapseCount()
@@ -566,6 +568,31 @@ public class SnnModel : DisposableObject
         int[] result = new int[1];
         _synapseWatermarkBuffer.CopyToCPU(result);
         return result[0];
+    }
+
+    public SynapseData[] GetSynapses()
+    {
+        int count = GetDynamicSynapseCount();
+        SynapseData[] result = new SynapseData[count];
+        synapsePool.View.SubView(0, count).CopyToCPU(result);
+        return result;
+    }
+
+    public void SetSynapses(SynapseData[] synapses)
+    {
+        if (synapses.Length > synapsePool.Length)
+            throw new Exception(
+                $"Snapshot enthält {synapses.Length} Synapsen, " +
+                $"aber Poolgröße ist nur {synapsePool.Length}");
+
+        // Synapsen in den Pool kopieren
+        synapsePool.View.SubView(0, synapses.Length).CopyFromCPU(synapses);
+
+        // Watermark setzen
+        int[] watermark = new int[1];
+        watermark[0] = synapses.Length;
+
+        _synapseWatermarkBuffer.CopyFromCPU(watermark);
     }
 
     // Member-Variablen
