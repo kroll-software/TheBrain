@@ -411,9 +411,9 @@ public class SnnModel : DisposableObject
                 Threshold = 1,
                 Energy = 1,
                 ConnectionRadius = 15.0f, 
-                IsAutoFireActive = (layerType == "Hidden") ? (byte)1 : (byte)0,
+                CanAutoFire = (layerType == "Hidden") ? (byte)1 : (byte)0,
                 MaxSynapseLimit = maxSynapses,
-                Type = (layerType == "Hidden") ? (rnd.NextDouble() > 0.8) ? (byte)1 : (byte)0 : (byte)0,                
+                Type = (layerType == "Hidden") ? (rnd.NextDouble() > 0.8) ? (byte)1 : (byte)0 : (byte)0,
 
                 PosX = posX,
                 PosY = posY,
@@ -435,7 +435,7 @@ public class SnnModel : DisposableObject
 
     public int Iteration {get; set;}
 
-    public void Step(float energyRecovery, int fireCycleDuration)
+    public void Step(float energyRecovery = 0.01f, int fireCycleDuration = 8)
     {
         _globalSeed++;
         Iteration++;
@@ -450,7 +450,13 @@ public class SnnModel : DisposableObject
         
         // 2. Rufe ihn auf (ohne 'stream' als Argument, das macht ILGPU automatisch, wenn du den Kernel-Typ korrekt lädst)
         // Der 'Index1D' ist für die Grid-Größe (Anzahl Neuronen)
-        updateKernel(new Index1D(NeuronCount), Neurons.DeviceBuffer.View, energyRecovery, fireCycleDuration, _globalSeed);
+        updateKernel(
+            new Index1D(NeuronCount), 
+            Neurons.DeviceBuffer.View, 
+            energyRecovery, 
+            fireCycleDuration, 
+            _globalSeed
+        );
 
         // 2. PropagatePulses: Hier verteilen wir Energie über die Synapsen
 

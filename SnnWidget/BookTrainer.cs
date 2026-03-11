@@ -82,8 +82,9 @@ public class BookTrainer
                         // Wir simulieren hier z.B. 10 Steps pro Token, 
                         // damit die Welle Zeit hat, sich auszubreiten.
                         for (int k = 0; k < 1; k++) 
-                        {
-                            _model.Step(1f, 1);
+                        {                            
+                            //_model.Step(1f, 1);
+                            _model.Step();  // use default parameters
                             Thread.Sleep(1);
                             stepCount++;
                         }

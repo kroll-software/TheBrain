@@ -11,81 +11,123 @@ namespace TheBrain.CudaSNN;
 
 public static class SnnKernels {
     // Dieser Code wird von ILGPU zu CUDA transpilliert    
-    public static void UpdateNeuronsKernel(
-        Index1D index, 
-        ArrayView1D<NeuronState, Stride1D.Dense> states, 
-        float decay)
-    {
-        // Zugriff auf das Struct
-        NeuronState state = states[index];
-        
-        // Logik deiner State Machine
-        if (state.State == 0) {
-            state.Input *= decay; 
-        }
-        
-        // Wichtig: Da structs "Value Types" sind, musst du das geänderte 
-        // Struct wieder in den View schreiben.
-        states[index] = state;
-    }
 
     public static void UpdateNeuronStep(
         Index1D index,
         ArrayView1D<NeuronState, Stride1D.Dense> neurons,
         float energyRecoveryRate,
         int fireCycleDuration,
-        int globalSeed
-        )
+        int globalSeed)
     {
         var n = neurons[index];
 
-        // 1. Energie-Erholung (passiert immer)
-        n.Energy = Math.Min(1.0f, n.Energy + energyRecoveryRate);
+        // --------------------------------------------------
+        // Energy Recovery
+        // --------------------------------------------------
+
+        if (n.Type == 2)
+            n.Energy = 1f;
+        else
+            n.Energy = Math.Min(1.0f, n.Energy + energyRecoveryRate);
 
         if (n.NewSynapseCounter > 0)
             n.NewSynapseCounter--;
 
-        // 2. Logik: Ist das Neuron gerade im FireCycle?
-        if (n.FireCycleRemaining > 0)
-        {            
-            n.FireCycleRemaining--;
+        // --------------------------------------------------
+        // FIRE CYCLE
+        // --------------------------------------------------
+
+        if (n.State > 0)
+        {
+            float spike;
+
+            switch (n.FireCycle)
+            {
+                case 0: spike = 1f;   break;
+                case 1: spike = 0.1f; break;
+                case 2: spike = 0.8f; break;
+                case 3: spike = 0.1f; break;
+                case 4: spike = 0.6f; break;
+                case 5: spike = 0.1f; break;
+                case 6: spike = 0.4f; break;
+                case 7: spike = 0.1f; break;
+                default: spike = 0f; break;
+            }
+
+            // Vorzeichen für inhibitory
+            if (n.Type == 1)
+                spike = -spike;
+
+            n.Output = spike;
+
             n.Energy -= 0.1f;
 
-            if (n.FireCycleRemaining == 0)
-            {                
-                n.State = 0; // <--- RESET DES STATES
+            n.FireCycle++;
+
+            if (n.FireCycle >= fireCycleDuration)
+            {
+                n.State = 0;
+                n.FireCycle = 0;
                 n.Output = 0;
             }
         }
-        else if (n.Energy > 0.3f && n.State == 0)
+
+        // --------------------------------------------------
+        // START FIRE CYCLE
+        // --------------------------------------------------
+
+        else if (n.State == 0 && n.Energy > 0.3f)
         {
-            //bool triggerNormal = n.Input > (0.5f / (1.0f + n.ShortTermExcitement));
             bool triggerNormal = n.Input >= n.Threshold;
+
             float randomVal = GpuRandom.GetRandom(index, globalSeed);
-            bool triggerAuto = n.IsAutoFireActive == 1 && (randomVal < 0.01f); // 0.1% Chance pro Step                        
+            bool triggerAuto = n.CanAutoFire == 1 && randomVal < 0.01f;
 
-            if (triggerNormal)
-                n.State = 1;
-            else if (triggerAuto)
-                n.State = 2;
+            if (triggerNormal || triggerAuto)
+            {
+                n.State = triggerNormal ? (byte)1 : (byte)2;
+                n.FireCycle = 0;
 
-            if (n.State > 0)
-            {                
-                n.FireCycleRemaining = 8;
-                if (n.Type == 0)
-                    n.Output = 1;
-                else
-                    n.Output = -1;
+                //float spike = (n.Type == 1) ? -1f : 1f;
+                //n.Output = spike;
+
+                n.Output = 0;
                 n.Input = 0;
 
-                // Begeisterung baut sich auf
                 n.ShortTermExcitement += 0.1f;
                 n.LongTermExcitement += 0.001f;
             }
-        }        
+        }
 
-        // Abklingen der Begeisterung
+        // --------------------------------------------------
+        // Excitement decay
+        // --------------------------------------------------
+
         n.ShortTermExcitement *= 0.99f;
+
+        neurons[index] = n;
+    }
+
+    public static void FireNeuronKernel(
+        Index1D index,
+        ArrayView1D<NeuronState, Stride1D.Dense> neurons,
+        int targetIndex,
+        float input,
+        float energy)
+    {
+        if (index != targetIndex)
+            return;
+
+        var n = neurons[index];
+
+        n.Input = input;
+        n.Energy = energy;
+
+        n.State = 1;
+        n.FireCycle = 100;
+
+        n.Output = 1f;
+
         neurons[index] = n;
     }
 
@@ -104,9 +146,9 @@ public static class SnnKernels {
     }
 
     public static void ProcessPulses(
-    Index1D index, 
-    ArrayView1D<NeuronState, Stride1D.Dense> neurons,
-    ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
+        Index1D index, 
+        ArrayView1D<NeuronState, Stride1D.Dense> neurons,
+        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {
         // Wir arbeiten direkt auf dem Speicher
         ref var n = ref neurons[index];        
@@ -500,6 +542,9 @@ public static class SnnKernels {
         ArrayView1D<int, Stride1D.Dense> watermarkBuffer, // Dein globaler Pool-Zähler
         ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {   
+        if (receiver.ID == sourceIdx)
+            return;
+
         if (receiver.NewSynapseCounter > 0)
             return;
 
@@ -514,6 +559,12 @@ public static class SnnKernels {
 
         // In AttemptSynapseGrowth:
         int poolIdx = Atomic.Add(ref watermarkBuffer[0], 1);
+        if (poolIdx >= synapsePool.Length)
+        {
+            Atomic.Add(ref watermarkBuffer[0], -1);
+            return;
+        }
+
         if (poolIdx < synapsePool.Length)
         {
             // 1. Die neue Synapse vorbereiten
@@ -532,26 +583,33 @@ public static class SnnKernels {
     }
 
     private static bool HasExistingReverseConnection(
-        int myID, 
-        int potentialSourceIdx, 
-        ArrayView1D<NeuronState, Stride1D.Dense> allNeurons,
-        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
+    int myID,
+    int potentialSourceIdx,
+    ArrayView1D<NeuronState, Stride1D.Dense> allNeurons,
+    ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {
-        // Wir schauen in die Synapsen-Liste des potenziellen Senders
-        int currentSynIdx = allNeurons[potentialSourceIdx].FirstSynapseIndex;
+        // Wir prüfen Synapsen die von meinem Neuron ausgehen
+        int currentSynIdx = allNeurons[myID].FirstSynapseIndex;
 
-        // Wir laufen die Kette der Synapsen ab, die vom Source-Neuron ausgehen
-        // Achtung: Begrenze die Schleife, um Endlosschleifen bei Fehlern zu vermeiden
         int safetyCounter = 0;
+
         while (currentSynIdx != -1 && safetyCounter < 1000)
         {
-            if (synapsePool[currentSynIdx].TargetEntityID == myID)
+            if (currentSynIdx >= synapsePool.Length)
+                break;
+
+            ref SynapseData syn = ref synapsePool[currentSynIdx];
+
+            if (syn.SourceNeuronIdx == myID &&
+                syn.TargetEntityID == potentialSourceIdx)
             {
-                return true; // Verbindung B -> A existiert bereits!
+                return true; // myID -> source existiert bereits
             }
-            currentSynIdx = synapsePool[currentSynIdx].NextIndex;
+
+            currentSynIdx = syn.NextIndex;
             safetyCounter++;
         }
+
         return false;
     }
     
@@ -561,19 +619,18 @@ public static class SnnKernels {
         ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {
         int currentIdx = receiver.FirstSynapseIndex;
-        
-        // Maximale Anzahl an Synapsen pro Neuron als Sicherheitsgurt
-        // Verhindert Endlosschleifen und Speicher-Crashes
-        for (int i = 0; i < 64; i++) 
+                
+        //for (int i = 0; i < 64; i++) 
+        while (true)    // all synapses
         {
             if (currentIdx == -1 || currentIdx >= synapsePool.Length)
                 break;
 
             ref SynapseData syn = ref synapsePool[currentIdx];
-            
-            if (syn.TargetEntityID == sourceIdx)
-            {
-                syn.Weight += 0.05f;
+                        
+            if (syn.SourceNeuronIdx == sourceIdx)
+            {                
+                syn.Weight += 0.005f * syn.Weight * (1f - syn.Weight);
                 return true;
             }
             
@@ -609,25 +666,7 @@ public static class SnnKernels {
         // Einfacher für den Anfang: Wir schreiben das Ergebnis pro Warp/Block (hier vereinfacht direkt)
         Atomic.Add(ref resultBuffer[0].TotalWeight, synapse.Weight);
         Atomic.Add(ref resultBuffer[0].ActiveCount, 1);
-    }
-
-    public static void FireNeuronKernel(
-        Index1D index, 
-        ArrayView1D<NeuronState, Stride1D.Dense> neurons, 
-        int targetIndex, 
-        float potential, 
-        float energy)
-    {
-        if (index == targetIndex)
-        {
-            var n = neurons[index];
-            n.Input = potential;
-            n.Energy = energy;
-            n.State = 1;
-            n.FireCycleRemaining = 8;            
-            neurons[index] = n;
-        }
-    }
+    }    
 
     // Kernel: Zählt wie viele Neuronen gerade feuern
     public static void CountActiveNeurons(
@@ -659,16 +698,16 @@ public static class SnnKernels {
     }
 
     public static void CountActiveSynapsesKernel(
-    Index1D index,
-    ArrayView1D<SynapseData, Stride1D.Dense> synapses,
-    ArrayView1D<int, Stride1D.Dense> counter)
-    {
-        // Zugriff über das Feld 'Weight' in deinem SynapseData-Struct
-        if (synapses[index].Weight != 0.0f)
+        Index1D index,
+        ArrayView1D<SynapseData, Stride1D.Dense> synapses,
+        ArrayView1D<int, Stride1D.Dense> counter)
         {
-            Atomic.Add(ref counter[0], 1);
+            // Zugriff über das Feld 'Weight' in deinem SynapseData-Struct
+            if (synapses[index].Weight != 0.0f)
+            {
+                Atomic.Add(ref counter[0], 1);
+            }
         }
-    }
 }
 
 public static class NeuronKernels

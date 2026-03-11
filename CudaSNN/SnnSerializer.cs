@@ -9,6 +9,7 @@ using KS.Foundation;
 using KS.Foundation.ECS;
 using Newtonsoft.Json;
 using Newtonsoft.Json.Linq;
+using System.Diagnostics;
 
 namespace TheBrain.CudaSNN;
 
@@ -37,10 +38,10 @@ public class NeuronStateConverter : JsonConverter<NeuronState>
         writer.WritePropertyName("AxonX"); writer.WriteValue(value.AxonX);
         writer.WritePropertyName("AxonY"); writer.WriteValue(value.AxonY);
         writer.WritePropertyName("AxonZ"); writer.WriteValue(value.AxonZ);
-        writer.WritePropertyName("FireCycleRemaining"); writer.WriteValue(value.FireCycleRemaining);
+        writer.WritePropertyName("FireCycleRemaining"); writer.WriteValue(value.FireCycle);
         writer.WritePropertyName("Type"); writer.WriteValue(value.Type);
         writer.WritePropertyName("State"); writer.WriteValue(value.State);
-        writer.WritePropertyName("IsAutoFireActive"); writer.WriteValue(value.IsAutoFireActive);
+        writer.WritePropertyName("IsAutoFireActive"); writer.WriteValue(value.CanAutoFire);
         writer.WritePropertyName("Debug"); writer.WriteValue(value.Debug);
 
         // Fixed Arrays als echte JSON-Arrays
@@ -84,10 +85,10 @@ public class NeuronStateConverter : JsonConverter<NeuronState>
         state.AxonX = jo["AxonX"]?.Value<float>() ?? 0f;
         state.AxonY = jo["AxonY"]?.Value<float>() ?? 0f;
         state.AxonZ = jo["AxonZ"]?.Value<float>() ?? 0f;
-        state.FireCycleRemaining = jo["FireCycleRemaining"]?.Value<int>() ?? 0;
+        state.FireCycle = jo["FireCycleRemaining"]?.Value<int>() ?? 0;
         state.Type = jo["Type"]?.Value<byte>() ?? 0;
         state.State = jo["State"]?.Value<byte>() ?? 0;
-        state.IsAutoFireActive = jo["IsAutoFireActive"]?.Value<byte>() ?? 0;
+        state.CanAutoFire = jo["IsAutoFireActive"]?.Value<byte>() ?? 0;
         state.Debug = jo["Debug"]?.Value<int>() ?? 0;
 
         // Fixed Arrays sicher befüllen
@@ -164,6 +165,13 @@ public class SnnSerializer
             JsonSerializer serializer = JsonSerializer.Create(settings);
             serializer.Serialize(writer, snapshot);
         }
+
+        // Some statistics ...
+        float maxWeight = synapses.Max(s => s.Weight);
+        float avgWeight = synapses.Average(s => s.Weight);
+
+        Debug.WriteLine($"Synapses Max Weight: {maxWeight}, Avg. Weight: {avgWeight}");
+
     }
 
     public class ModelSnapshot

@@ -36,16 +36,17 @@ public struct NeuronState : IComponent
     public float PosX, PosY, PosZ;
     public float AxonX, AxonY, AxonZ;
 
-    // Integers / Bytes
-    public int FireCycleRemaining;
+    // Integers / Bytes    
 
     public byte Type; // 0: Excitory, 1: Inhibitory
 
     public byte State; // 0: Idle, 1: Fire, 2: AutoFire
 
+    public int FireCycle;
+
     // RADIKALER WECHSEL: Keine bools mehr im Struct!
     // Wir nutzen Byte-Flags als Ersatz für bools (0 = false, 1 = true)
-    public byte IsAutoFireActive;
+    public byte CanAutoFire;
 
     public int Debug;
 }
