@@ -1,4 +1,5 @@
 using System;
+using System.IO;
 using KS.Foundation;
 using System.Drawing;
 using SummerGUI;
@@ -9,6 +10,7 @@ namespace TheBrain;
 public class SnnWidget : Widget
 {
     public SnnModel SNN { get; set; }
+    public BookTrainer Trainer { get; set; }
 
     SummerGUI.Brush[] Brushes;
     SummerGUI.Brush FontBrush;
@@ -60,7 +62,7 @@ public class SnnWidget : Widget
     public override void OnPaint(IGUIContext ctx, RectangleF bounds)
     {
         base.OnPaint(ctx, bounds);
-        if (SNN == null)
+        if (SNN == null || Trainer == null)
             return;
 
         var data = SNN.GetNeuronPotentialsForDrawing();
@@ -69,7 +71,7 @@ public class SnnWidget : Widget
         float scaleY = bounds.Height / 640f;
         float pointSize = 3f;
         
-        for (int i = 0; i < data.Length; i += 5)
+        for (int i = 0; i < data.Length; i += 25)
         {
             var n = data[i];
             SummerGUI.Brush brush;
@@ -104,7 +106,7 @@ public class SnnWidget : Widget
 
         int synapseCount = SNN.GetDynamicSynapseCount();
         RectangleF rstatus = new RectangleF(bounds.Left + 12, bounds.Top + 12, bounds.Width - 24, Font.LineHeight);
-        ctx.DrawString($"Iter: {SNN.Iteration:N0} | Synapses: {synapseCount:N0}", Font, FontBrush, rstatus, FontFormat.DefaultSingleLine);
+        ctx.DrawString($"Iter: {SNN.Iteration:N0} | Synapses: {synapseCount:N0} | Book: {Path.GetFileName(Trainer.BookFile)}", Font, FontBrush, rstatus, FontFormat.DefaultSingleLine);
 
         Invalidate();
     }

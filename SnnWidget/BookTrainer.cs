@@ -11,15 +11,35 @@ public class BookTrainer
 {
     private SnnModel _model;    
 
-    SnnTokenizer Tokenizer;
+    public SnnTokenizer Tokenizer {get; private set; }
 
-    int NumInputNeurons;
-
-    public BookTrainer(SnnModel model, int numInputNeurons)
+    public event EventHandler ProgressChanged;
+    
+    private int m_Progress;
+    public int Progress
     {
-        _model = model;
-        NumInputNeurons = numInputNeurons;
-        Tokenizer = new SnnTokenizer(numInputNeurons);
+        get
+        {
+            return m_Progress;
+        }
+        set
+        {
+            if (m_Progress != value)
+            {
+                m_Progress = value;
+                if (ProgressChanged != null)
+                    ProgressChanged(this, EventArgs.Empty);
+            }
+        }
+    }
+
+
+    public string BookFile { get; private set; }
+
+    public BookTrainer(SnnModel model)
+    {
+        _model = model;        
+        Tokenizer = new SnnTokenizer();        
     }
 
     public void TrainOnDirectory(string path)
@@ -36,8 +56,17 @@ public class BookTrainer
         {
             foreach (var file in files)
             {
-                foreach (var line in File.ReadLines(file))
+                BookFile = file;
+
+                var lines = File.ReadLines(file);
+                var lineCount = lines.Count();
+                int currentLine = 0;
+
+                foreach (var line in lines)
                 {
+                    currentLine++;
+                    Progress = (int)((float)currentLine / lineCount  * 100f);
+
                     int[] tokenNeuronIds = Tokenizer.EncodeAndMap(line);
                     
                     for (int i = 0; i < tokenNeuronIds.Length - 1; i++)                    
@@ -46,7 +75,7 @@ public class BookTrainer
                         int nextTokenID = tokenNeuronIds[i + 1];
                         // 1. Impuls geben
                         _model.FireNeuron(tokenID);
-                        _model.FireNeuron(neuronCount - NumInputNeurons + nextTokenID);
+                        _model.FireNeuron(neuronCount - Tokenizer.VocabSize + nextTokenID);
                         tokenCount++;
                         
                         // 2. Propagations-Phase
@@ -78,6 +107,8 @@ public class BookTrainer
                         
                     }
                 }
+                
+                _model.SaveModel();
             }
         }
     }

@@ -13,14 +13,16 @@ namespace TheBrain
 {
 	public class MainForm : ApplicationWindow
 	{
+		// *** Configuration
+		public string BooksDir { get; set; } = "/home/detlef/The_Brain_Books/";
+		public string ModelDir { get; set; } = "/home/detlef/KSAll/OpenSource2026/TheBrain/models/";
+
         ImageList ImlToolbar;
 
 		public ToolBarCircleButton m_CmdPrevious;
 		public ToolBarCircleButton m_CmdNext;
-		public ToolBarSeparator m_Separator1;
-		public ToolBarImageButton m_CmdDice;
-		public ToolBarImageButton m_CmdRun;
-		public ToolBarImageButton m_CmdScore;		
+		public ToolBarSeparator m_Separator1;		
+		public ToolBarImageButton m_CmdRun;		
 
 		public PlotterContainer m_GraphPlotter;      
 
@@ -53,26 +55,19 @@ namespace TheBrain
 
 			m_Separator1 = new ToolBarSeparator ("separator1");
 			MenuPanel.ToolBar.AddChild (m_Separator1);
-
-			m_CmdDice = new  ToolBarImageButton ("cmdDice", "Dice", "Dice-2_30px.png");
-			MenuPanel.ToolBar.AddChild (m_CmdDice);
-
-			m_CmdDice.Click += (sender, args) => BuildSnnModel();
-
+			
 			//m_CmdSNN  = new ToolBarButton ("cmdSNN", String.Empty, "Assets\\ToolBar\\Brain-3_30px.png".FixedExpandedPath ());
 			m_CmdRun = new ToolBarImageButton ("cmdRun", "Run", "Running_30px.png");
 			m_CmdRun.IsToggleButton = true;
 			MenuPanel.ToolBar.AddChild (m_CmdRun);
 
+			m_CmdRun.Click += (sender, args) => BuildSnnModel();
+
 			m_CmdRun.CheckedChanged += delegate {
 				this.LogInformation("m_CmdRun.Checked: {0}", m_CmdRun.Checked);
-			};
+			};			
 
-			m_CmdScore = new ToolBarImageButton ("cmdScore", "Score", "Trophy_30px.png");
-			MenuPanel.ToolBar.AddChild (m_CmdScore);
-
-			TabMain.AdTabPage ("snn", "SNN");
-			TabMain.AdTabPage ("midi", "MIDI");
+			TabMain.AdTabPage ("snn", "SNN");			
 			TabMain.AdTabPage ("plotter", "Plotter");
 
 			SNNWidget = new SnnWidget ("Brain");
@@ -90,26 +85,36 @@ namespace TheBrain
 		public void BuildSnnModel()
 		{
 			ShowStatus("Building SNN-Model ...", false);
-			SNN = new SnnModel("test");			
+
+			SNN = new SnnModel("test");
+			SNN.ModelDir = ModelDir;
+			BookTrainer trainer = new BookTrainer(SNN);			
 
 			SNN.BuildNetwork(new BrainConfiguration{				
-				NumInputClasses = 16384,
+				NumInputClasses = trainer.Tokenizer.VocabSize,
 				NumInputClassNeurons = 1,
 				NumHiddenLayers = 1,
-				NeuronsPerHiddenLayer = 262144,
+				NeuronsPerHiddenLayer = trainer.Tokenizer.VocabSize * 8,
 				HiddenLayerMaxSynapses = 512,
-				NumOutputClasses = 16384,
+				NumOutputClasses = trainer.Tokenizer.VocabSize,
 				NumOutputClassNeurons = 1,
 				OutputLayerMaxSynapses = 1024
 			});
+			
+			trainer.ProgressChanged += (sender, args) =>
+			{
+				this.ShowProgress(trainer.Progress);
+			};
+
+			this.StatusBar.ProgressPanel.Visible = true;
 
 			SNNWidget.SNN = SNN;
+			SNNWidget.Trainer = trainer;
 			
 			ShowStatus("Training ...", false);
 			
-			Task.Run(() => {
-				BookTrainer trainer = new BookTrainer(SNN, 16384);
-				trainer.TrainOnDirectory("/home/detlef/The_Brain_Books/");
+			Task.Run(() => {				
+				trainer.TrainOnDirectory(BooksDir);
 			});
 		}
 

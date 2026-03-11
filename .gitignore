@@ -4,6 +4,13 @@
 out/
 publish/
 
+tokenizer/*
+!tokenizer/.gitkeep
+
+models/*
+!models/.gitkeep
+
+
 # --- VS-Code Spezifisch ---
 .vscode/
 .history/

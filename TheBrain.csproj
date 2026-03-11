@@ -32,6 +32,7 @@
     <PackageReference Include="ILGPU.Algorithms" Version="1.5.3" />    
     <PackageReference Include="ManagedCuda" Version="10.0.0" />    
     <PackageReference Include="Microsoft.ML.Tokenizers" Version="2.0.0" />    
+    <PackageReference Include="Newtonsoft.Json" Version="13.0.4" />    
     <PackageReference Include="OpenTK" Version="4.9.4" />    
     <PackageReference Include="System.Drawing.Primitives" Version="4.3.0" />    
     <PackageReference Include="Tiktoken" Version="2.2.0" />
@@ -46,8 +47,8 @@
 
   <ItemGroup>
     <!-- Automatische Code-Einbindung -->            
-    <None Include="LICENSE" />
-    <None Include="SampleData\**\*" CopyToOutputDirectory="PreserveNewest" />
+    <None Include="LICENSE" />    
+    <None Include="tokenizer\**\*" CopyToOutputDirectory="PreserveNewest" />
   </ItemGroup>
 
   <ItemGroup>

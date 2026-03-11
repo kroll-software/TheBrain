@@ -6,6 +6,7 @@ using KS.Foundation;
 using KS.Foundation.ECS;
 
 
+
 namespace TheBrain.CudaSNN;
 
 /// <summary>
@@ -13,6 +14,9 @@ namespace TheBrain.CudaSNN;
 /// </summary>
 public class SnnModel : DisposableObject
 {
+
+    public string ModelDir { get; set; } = "/home/detlef/KSAll/OpenSource2026/TheBrain/models/";
+
     public IWorld World { get; private set; }
     public GpuEngine Gpu { get; private set; } // Die Brücke zur GPU
 
@@ -40,6 +44,25 @@ public class SnnModel : DisposableObject
 
         World = WorldFactory.Create(systems);
     }
+
+    public void SaveModel()
+    {        
+        if (!Directory.Exists(ModelDir))
+            Directory.CreateDirectory(ModelDir);
+
+        string fullPath = Path.Combine(ModelDir, "model.json");
+
+        SnnSerializer serializer = new SnnSerializer();
+        serializer.Save(fullPath, this);
+    }
+
+    public void LoadModel()
+    {
+        string fullPath = Path.Combine(ModelDir, "model.json");
+        
+        SnnSerializer serializer = new SnnSerializer();
+        serializer.Load(fullPath, this);
+    }    
 
     public void ConnectLayers(int sourceOffset, int sourceCount, int targetOffset, int targetCount, float probability, float defaultWeight)
     {
@@ -139,6 +162,13 @@ public class SnnModel : DisposableObject
         }
 
         UploadToGpu(config);
+
+        string fullPath = Path.Combine(ModelDir, "model.json");
+        
+        if (!string.IsNullOrEmpty(ModelDir) && File.Exists(fullPath))
+        {        
+            LoadModel(); 
+        }        
     }
 
     public int NeuronCount { get; protected set; }
@@ -402,7 +432,7 @@ public class SnnModel : DisposableObject
 
     private int _globalSeed = 0;
 
-    public long Iteration {get; private set;}
+    public int Iteration {get; set;}
 
     public void Step(float energyRecovery, int fireCycleDuration)
     {
