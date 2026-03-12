@@ -327,7 +327,8 @@ public static class SnnKernels {
         ArrayView1D<SynapseData, Stride1D.Dense> synapsePool,
         int gridDim,
         float voxelSize,
-        float maxReachSq)
+        float maxReachSq,
+        float learningRate)
     {
         //int neuronIndex = index.GridIdx;
         int neuronIndex = index;
@@ -400,7 +401,8 @@ public static class SnnKernels {
                         ReinforceExistingSynapse(
                             ref receiver,
                             source.ID,
-                            synapsePool);
+                            synapsePool,
+                            learningRate);
 
                     if (!found)
                     {
@@ -432,7 +434,8 @@ public static class SnnKernels {
         ArrayView1D<SynapseData, Stride1D.Dense> synapsePool, // Muss hier rein
         int gridDim,
         float voxelSize,
-        float maxReachSq)
+        float maxReachSq,
+        float learningRate)
     {        
         ref var receiver = ref neurons[index];
         
@@ -482,7 +485,7 @@ public static class SnnKernels {
                             // Lernen, wenn innerhalb der Axon-Reichweite
                             if (distSq < maxReachSq)
                             {                                
-                                bool synapticLinkFound = ReinforceExistingSynapse(ref receiver, sourceIdx, synapsePool);
+                                bool synapticLinkFound = ReinforceExistingSynapse(ref receiver, sourceIdx, synapsePool, learningRate);
                                 
                                 if (!synapticLinkFound) 
                                 {                                    
@@ -616,7 +619,8 @@ public static class SnnKernels {
     private static bool ReinforceExistingSynapse(
         ref NeuronState receiver, 
         int sourceIdx, 
-        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
+        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool,
+        float learningRate)
     {
         int currentIdx = receiver.FirstSynapseIndex;
                 
@@ -630,7 +634,7 @@ public static class SnnKernels {
                         
             if (syn.SourceNeuronIdx == sourceIdx)
             {                
-                syn.Weight += 0.005f * syn.Weight * (1f - syn.Weight);
+                syn.Weight += learningRate * syn.Weight * (1f - syn.Weight);
                 return true;
             }
             

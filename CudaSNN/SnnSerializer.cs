@@ -208,8 +208,8 @@ public class SnnSerializer
             model.Neurons.DeviceBuffer.CopyFromCPU(snapshot.Neurons);
 
             // Synapsen laden (über neue Model-Funktion)
-            model.SetSynapses(snapshot.Synapses);
-        }
+            model.SetSynapses(snapshot.Synapses);            
+        }        
     }
 
     /***

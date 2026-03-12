@@ -30,7 +30,7 @@ public class KernelRegistry
             ArrayView1D<int, Stride1D.Dense>,
             ArrayView1D<int, Stride1D.Dense>, // watermarkBuffer
             ArrayView1D<SynapseData, Stride1D.Dense>, // synapsePool
-            int, float, float>(SnnKernels.HebbianSpatialKernel);            
+            int, float, float, float>(SnnKernels.HebbianSpatialKernel);            
 
         _kernels["UpdateNeuronStep"] = acc.LoadAutoGroupedStreamKernel<
             Index1D, 

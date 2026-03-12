@@ -25,6 +25,8 @@ public class SnnModel : DisposableObject
     public NeuronSystem Neurons { get; private set; }
     public SynapseSystem Synapses { get; private set; } 
 
+    public float LearningRate { get; set; } = 0.01f;
+
     private readonly KernelRegistry m_KernelRegistry;
 
     public SnnModel(string name)
@@ -260,7 +262,7 @@ public class SnnModel : DisposableObject
         // Sicherstellen, dass sie zu Beginn auf 0 stehen
         GlobalPotentials.MemSetToZero();
 
-        Console.WriteLine($"{SynapseCount} Synapsen erfolgreich auf die GPU geladen.");
+        //Console.WriteLine($"{SynapseCount} Synapsen erfolgreich auf die GPU geladen.");
 
         // *** Synchronisieren
         Gpu.Accelerator.Synchronize();        
@@ -481,7 +483,7 @@ public class SnnModel : DisposableObject
             ArrayView1D<int, Stride1D.Dense>,
             ArrayView1D<int, Stride1D.Dense>, // watermarkBuffer
             ArrayView1D<SynapseData, Stride1D.Dense>, // synapsePool
-            int, float, float>>("HebbianSpatialKernel");        
+            int, float, float, float>>("HebbianSpatialKernel");        
 
         hebbianKernel(
             (Index1D)Neurons.DeviceBuffer.Length,            
@@ -492,7 +494,8 @@ public class SnnModel : DisposableObject
             synapsePool.View,
             gridDim,
             voxelSize,
-            MaxReachSq
+            MaxReachSq,
+            LearningRate
         );
     }
 
