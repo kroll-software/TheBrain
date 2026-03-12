@@ -64,7 +64,8 @@ public static class SnnKernels {
 
             n.FireCycle++;
 
-            if (n.FireCycle >= fireCycleDuration)
+            if (n.FireCycle >= fireCycleDuration || (n.Type == 2 && n.FireCycle > 1))
+            //if (n.FireCycle >= fireCycleDuration)
             {
                 n.State = 0;
                 n.FireCycle = 0;
@@ -81,7 +82,7 @@ public static class SnnKernels {
             bool triggerNormal = n.Input >= n.Threshold;
 
             float randomVal = GpuRandom.GetRandom(index, globalSeed);
-            bool triggerAuto = n.CanAutoFire == 1 && randomVal < 0.01f;
+            bool triggerAuto = n.CanAutoFire == 1 && randomVal < 0.0001f;
 
             if (triggerNormal || triggerAuto)
             {
@@ -124,7 +125,7 @@ public static class SnnKernels {
         n.Energy = energy;
 
         n.State = 1;
-        n.FireCycle = 100;
+        n.FireCycle = 0;
 
         n.Output = 1f;
 
@@ -159,9 +160,8 @@ public static class SnnKernels {
         float accumulatedPotential = 0;
         int currentSynapseIdx = n.FirstSynapseIndex;
 
-        // 1. Sammle Energie von allen verbundenen Vorgängern (Pull)
-        // Wir nutzen wieder den Loop-Guard für GPU-Stabilität
-        for (int i = 0; i < n.MaxSynapseLimit; i++) 
+        // 1. Sammle Energie von allen verbundenen Vorgängern (Pull)        
+        while (true)
         {
             if (currentSynapseIdx == -1 || currentSynapseIdx >= synapsePool.Length)
                 break;
@@ -186,112 +186,50 @@ public static class SnnKernels {
         n.Input += accumulatedPotential;        
     }
 
-    public static void ProcessPulses_alt(
-    Index1D index, 
-    ArrayView1D<NeuronState, Stride1D.Dense> neurons,
-    ArrayView1D<int, Stride1D.Dense> firstSynapse,
-    ArrayView1D<SynapseData, Stride1D.Dense> synapsePool,
-    ArrayView1D<float, Stride1D.Dense> globalPotentials)
-    {
-        var n = neurons[index];        
-        
-        // Wenn das angesammelte Potential kritisch wird
-        if (n.Input > n.Threshold)
-        {
-            // Wir berechnen die Puls-Stärke (unorthodox, z.B. proportional zum Überdruck)
-            float pulseEnergy = (n.Input - n.Threshold) * 0.5f; 
-            
-            int currentSynapseIdx = firstSynapse[index];
-            while (currentSynapseIdx != -1)
-            {
-                var synapse = synapsePool[currentSynapseIdx];
-                
-                // Der elektrische Impuls wandert weiter
-                // Nutze AtomicAdd, da viele Pulse gleichzeitig ankommen können
-                Atomic.Add(ref globalPotentials[synapse.TargetEntityID], pulseEnergy * synapse.Weight);
-                
-                currentSynapseIdx = synapse.NextIndex;
-            }
-            
-            // Energieverbrauch des Neurons nach dem Feuern
-            n.Input *= 0.1f; 
-        }
-        
-        neurons[index] = n;
-    }
-
     public static void InitFirstSynapseBuffer(Index1D index, ArrayView1D<int, Stride1D.Dense> buffer)
     {
         buffer[index] = -1;
     }
 
     public static unsafe void UpdateCandidateList(
-        ref NeuronState n, 
-        int candidateIndex, 
-        int newScore)
+        ref NeuronState n,
+        int candidateIndex)
     {
-        // 1. Prüfen, ob wir überhaupt besser als das Schlusslicht sind
-        if (newScore <= n.CandidateScores[7]) return;
-
-        // 2. Prüfen, ob der Kandidat schon drin ist (Update statt Insert)
+        // 1. Prüfen ob Kandidat bereits existiert
         for (int i = 0; i < 8; i++)
         {
             if (n.CandidateIndices[i] == candidateIndex)
             {
-                n.CandidateScores[i] = newScore;
-                // Nach oben "hochblubbern" (Insertion-Sort Logik)
+                n.CandidateScores[i] += 1;
+
+                // Nach oben sortieren (Bubble-Up)
                 while (i > 0 && n.CandidateScores[i] > n.CandidateScores[i - 1])
                 {
                     Swap(ref n, i, i - 1);
                     i--;
                 }
+
                 return;
             }
         }
 
-        // 3. Wenn nicht vorhanden: Neuen Kandidaten am Ende einfügen
-        n.CandidateIndices[7] = candidateIndex;
-        n.CandidateScores[7] = newScore;
+        // 2. Neuer Kandidat → prüfen ob er besser als letzter ist
+        int newScore = 1;
 
-        // 4. In die richtige Position einsortieren
-        int j = 6;
-        while (j >= 0 && n.CandidateScores[j + 1] > n.CandidateScores[j])
+        if (newScore <= n.CandidateScores[15])
+            return;
+
+        // 3. Am Ende einfügen
+        n.CandidateIndices[15] = candidateIndex;
+        n.CandidateScores[15] = newScore;
+
+        // 4. Nach oben einsortieren
+        int j = 15;
+
+        while (j > 0 && n.CandidateScores[j] > n.CandidateScores[j - 1])
         {
-            Swap(ref n, j, j + 1);
+            Swap(ref n, j, j - 1);
             j--;
-        }
-    }
-
-    public static unsafe void RemoveFromCandidateList(ref NeuronState n, int candidateIndex)
-    {
-        int foundIndex = -1;
-
-        // 1. Suche den Kandidaten in der Liste
-        for (int i = 0; i < 8; i++)
-        {
-            if (n.CandidateIndices[i] == candidateIndex)
-            {
-                foundIndex = i;
-                break;
-            }
-        }
-
-        // 2. Wenn gefunden, löschen und Rest nachrücken lassen
-        if (foundIndex != -1)
-        {
-            // Verschiebe alle nachfolgenden Kandidaten um einen Platz nach oben
-            for (int i = foundIndex; i < 7; i++)
-            {
-                n.CandidateIndices[i] = n.CandidateIndices[i + 1];
-                n.CandidateScores[i] = n.CandidateScores[i + 1];
-            }
-
-            // Den letzten Platz (Nr. 7) sauber "nullen"
-            n.CandidateIndices[7] = -1;
-            n.CandidateScores[7] = 0;
-        } else
-        {
-            n.Debug = 12;
         }
     }
 
@@ -306,7 +244,29 @@ public static class SnnKernels {
         
         n.CandidateIndices[b] = tempIdx;
         n.CandidateScores[b] = tempScore;
-    }    
+    }
+
+    public static unsafe void RemoveFromCandidateList(ref NeuronState n, int candidateIndex)
+    {
+        for (int i = 0; i < 8; i++)
+        {
+            if (n.CandidateIndices[i] == candidateIndex)
+            {
+                // Shift nach oben
+                for (int j = i; j < 15; j++)
+                {
+                    n.CandidateIndices[j] = n.CandidateIndices[j + 1];
+                    n.CandidateScores[j] = n.CandidateScores[j + 1];
+                }
+
+                // letzten Slot leeren
+                n.CandidateIndices[15] = -1;
+                n.CandidateScores[15] = 0;
+
+                return;
+            }
+        }
+    }
 
     public static void DebugSetKernel(Index1D index, 
         ArrayView1D<NeuronState, 
@@ -406,9 +366,9 @@ public static class SnnKernels {
 
                     if (!found)
                     {
-                        UpdateCandidateList(ref receiver, source.ID, 1);
+                        UpdateCandidateList(ref receiver, source.ID);
 
-                        if (receiver.CandidateScores[0] > 0.01f)
+                        if (receiver.CandidateScores[0] > 10)
                         {
                             AttemptSynapseGrowth(
                                 ref receiver,
@@ -487,57 +447,31 @@ public static class SnnKernels {
                             {                                
                                 bool synapticLinkFound = ReinforceExistingSynapse(ref receiver, sourceIdx, synapsePool, learningRate);
                                 
-                                if (!synapticLinkFound) 
-                                {                                    
-
+                                if (!synapticLinkFound)
+                                {
                                     // Hier rufen wir deine Logik auf
-                                    UpdateCandidateList(ref receiver, sourceIdx, 1);                                    
+                                    UpdateCandidateList(ref receiver, sourceIdx);                                    
 
                                     // 2. Prüfung: Ist der Score für diesen Kandidaten hoch genug?
                                     // Hinweis: Du musst hier ggf. den Score des speziellen Kandidaten 
                                     // aus receiver.CandidateScores[k] abrufen
-                                    if (receiver.CandidateScores[0] > 0.01f)
+                                    if (receiver.CandidateScores[0] > receiver.CurrentSynapseCount + 1)
                                     {
-                                        //neurons[index].Debug = 12;                                        
-
                                         // 3. Wachstum versuchen
                                         // Wir übergeben das Neuron und den aktuellen sourceIdx
                                         AttemptSynapseGrowth(ref receiver, sourceIdx, neurons, watermarkBuffer, synapsePool);
                                     }                                    
-                                }
-
-                                neurons[index] = receiver;
+                                }                                
                             }
                         }
                     }
                 }
             }
         }
-    }    
-    
-    private static void AttemptSynapseGrowth_old(
-        ref NeuronState receiver, 
-        int sourceIdx, 
-        ArrayView1D<int, Stride1D.Dense> watermarkBuffer, // Dein globaler Pool-Zähler
-        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
-    {
-        // 1. Hole einen neuen Slot aus dem Pool
-        int newIdx = Atomic.Add(ref watermarkBuffer[0], 1);
-        
-        if (newIdx < synapsePool.Length)
-        {
-            // 2. Erstelle den neuen Knoten
-            // Der neue Knoten zeigt auf das bisherige Head des Neurons
-            int oldHead = Atomic.Exchange(ref receiver.FirstSynapseIndex, newIdx);
-            
-            synapsePool[newIdx] = new SynapseData { 
-                TargetEntityID = sourceIdx, // Das Neuron, mit dem wir wachsen
-                Weight = 0.1f,
-                NextIndex = oldHead // Linkt auf das alte Head
-            };
-        }
-    }
 
+        neurons[index] = receiver;
+    }    
+        
     private static void AttemptSynapseGrowth(
         ref NeuronState receiver, 
         int sourceIdx, 
@@ -546,6 +480,9 @@ public static class SnnKernels {
         ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {   
         if (receiver.ID == sourceIdx)
+            return;
+
+        if (receiver.CurrentSynapseCount >= receiver.MaxSynapseLimit)
             return;
 
         if (receiver.NewSynapseCounter > 0)

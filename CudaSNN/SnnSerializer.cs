@@ -166,11 +166,14 @@ public class SnnSerializer
             serializer.Serialize(writer, snapshot);
         }
 
-        // Some statistics ...
-        float maxWeight = synapses.Max(s => s.Weight);
-        float avgWeight = synapses.Average(s => s.Weight);
+        if (synapses.Length > 0)
+        {
+            // Some statistics ...
+            float maxWeight = synapses.Max(s => s.Weight);
+            float avgWeight = synapses.Average(s => s.Weight);
 
-        Debug.WriteLine($"Synapses Max Weight: {maxWeight}, Avg. Weight: {avgWeight}");
+            Debug.WriteLine($"Synapses Max Weight: {maxWeight}, Avg. Weight: {avgWeight}");
+        }
 
     }
 

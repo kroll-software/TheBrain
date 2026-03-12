@@ -25,7 +25,7 @@ public class SnnModel : DisposableObject
     public NeuronSystem Neurons { get; private set; }
     public SynapseSystem Synapses { get; private set; } 
 
-    public float LearningRate { get; set; } = 0.01f;
+    public float LearningRate { get; set; } = 0.005f;
 
     private readonly KernelRegistry m_KernelRegistry;
 
@@ -128,11 +128,9 @@ public class SnnModel : DisposableObject
             + config.NumHiddenLayers * config.NeuronsPerHiddenLayer
             + config.NumOutputClasses * config.NumOutputClassNeurons;        
 
-        int gridDim = 64;
-        float voxelSize = 10.0f; // Ein Neuron pro 10 Einheiten
-    
+        int gridDim = 32;
+        float voxelSize = 20.0f; // Ein Neuron pro 10 Einheiten    
         AutoConfigureMetrics(gridDim, voxelSize);        
-        AutoConfigureMetrics(32, 20f);
 
         List<int> layerOffsets = new List<int>();
         int currentOffset = 0;
@@ -170,7 +168,9 @@ public class SnnModel : DisposableObject
         if (!string.IsNullOrEmpty(ModelDir) && File.Exists(fullPath))
         {        
             LoadModel(); 
-        }        
+        }
+
+        AllocateBuffers();
     }
 
     public int NeuronCount { get; protected set; }
@@ -195,25 +195,15 @@ public class SnnModel : DisposableObject
         });
 
         NeuronCount = components.Count;
+        if (NeuronCount == 0) return;
+
         this._renderBuffer = new NeuronRenderState[NeuronCount];
         this._renderDeviceBuffer = this.Gpu.Accelerator.Allocate1D<NeuronRenderState>(NeuronCount);
         _synapseWatermarkBuffer = Gpu.Accelerator.Allocate1D<int>(1);
         _synapseWatermarkBuffer.MemSet(0);
 
         int maxTotalSynapses = CalculateMaxTotalSynapses(config);
-        synapsePool = Gpu.Accelerator.Allocate1D<SynapseData>(maxTotalSynapses);        
-
-        sortedNeuronIDs = Gpu.Accelerator.Allocate1D<int>(NeuronCount);
-        gridLookup = Gpu.Accelerator.Allocate1D<int>(gridDim * gridDim * gridDim + 1);
-        int[] sortedNeuronIDsCPU;
-        int[] gridLookupCPU;
-        BuildGrid(components.ToArray(), gridDim, voxelSize,
-          out sortedNeuronIDsCPU,
-          out gridLookupCPU);
-        sortedNeuronIDs.CopyFromCPU(sortedNeuronIDsCPU);
-        gridLookup.CopyFromCPU(gridLookupCPU);
-
-        if (NeuronCount == 0) return;
+        synapsePool = Gpu.Accelerator.Allocate1D<SynapseData>(maxTotalSynapses);
         
         var componentArray = components.ToArray();        
 
@@ -268,6 +258,29 @@ public class SnnModel : DisposableObject
         Gpu.Accelerator.Synchronize();        
     }
 
+    private void AllocateBuffers()
+    {
+        if (NeuronCount == 0)
+            return;
+
+        var components = new List<NeuronState>();
+        World.EntityFinder.Find<NeuronState>().ForEach(entity =>
+        {
+            if (entity.TryGet<NeuronState>(out var state))
+                components.Add(state);
+        });
+
+        sortedNeuronIDs = Gpu.Accelerator.Allocate1D<int>(NeuronCount);
+        gridLookup = Gpu.Accelerator.Allocate1D<int>(gridDim * gridDim * gridDim + 1);
+        int[] sortedNeuronIDsCPU;
+        int[] gridLookupCPU;
+        BuildGrid(components.ToArray(), gridDim, voxelSize,
+          out sortedNeuronIDsCPU,
+          out gridLookupCPU);
+        sortedNeuronIDs.CopyFromCPU(sortedNeuronIDsCPU);
+        gridLookup.CopyFromCPU(gridLookupCPU);
+    }
+
     public static void BuildGrid(
         NeuronState[] neurons,
         int gridDim,
@@ -286,11 +299,10 @@ public class SnnModel : DisposableObject
 
         for (int i = 0; i < neuronCount; i++)
         {
-            int cx = (int)(neurons[i].PosX / voxelSize);
-            int cy = (int)(neurons[i].PosY / voxelSize);
-            int cz = (int)(neurons[i].PosZ / voxelSize);
+            int cx = (int)(neurons[i].AxonX / voxelSize);
+            int cy = (int)(neurons[i].AxonY / voxelSize);
+            int cz = (int)(neurons[i].AxonZ / voxelSize);
 
-            // Clamp für Sicherheit
             cx = Math.Clamp(cx, 0, gridDim - 1);
             cy = Math.Clamp(cy, 0, gridDim - 1);
             cz = Math.Clamp(cz, 0, gridDim - 1);
@@ -328,7 +340,7 @@ public class SnnModel : DisposableObject
         }
     }
 
-    private void CreateLayer(int count, int startIdx, string layerType, int layerIndex, BrainConfiguration config)
+    private unsafe void CreateLayer(int count, int startIdx, string layerType, int layerIndex, BrainConfiguration config)
     {
         Random rand = new Random();
 
@@ -356,6 +368,9 @@ public class SnnModel : DisposableObject
             var entity = World.CreateEntity(Neurons);            
 
             float posX, posY, posZ;
+            float axonX = 0;
+            float  axonY = 0;
+            float axonZ = 0;
             int neuronsPerRow = (int)WorldSize;
 
             switch (layerType)
@@ -364,7 +379,11 @@ public class SnnModel : DisposableObject
                     // Platzierung oben: X verteilt sich, Y ist nah bei 0
                     posX = i % neuronsPerRow; 
                     posY = (i / neuronsPerRow) * 2.0f + 1f; // Mehrere Zeilen mit 2f Abstand
-                    posZ = WorldSize / 2.0f;           // Mittig in der Tiefe                    
+                    posZ = (float)WorldSize / 2f;
+
+                    axonX = posX;
+                    axonY = (float)rand.NextDouble() * WorldSize / 2f;
+                    axonZ = (float)rand.NextDouble() * WorldSize;
                     break;
 
                 case "Output":
@@ -372,7 +391,11 @@ public class SnnModel : DisposableObject
                     posX = i % neuronsPerRow;
                     // Wir ziehen die Zeilen von der Unterkante nach oben ab
                     posY = WorldSize - ((i / neuronsPerRow) * 2.0f -1f); 
-                    posZ = WorldSize / 2.0f;
+                    posZ = (float)WorldSize / 2f;
+
+                    axonX = posX;
+                    axonY = (WorldSize / 2f) + ((float)rand.NextDouble() * WorldSize / 2f);
+                    axonZ = (float)rand.NextDouble() * WorldSize;
                     break;
 
                 default: // Hidden
@@ -382,40 +405,42 @@ public class SnnModel : DisposableObject
                     break;
             }
 
-            // Axon-Platzierung mit Mindestabstand
-            float axonX, axonY, axonZ;
-            float minDistance = voxelSize * 1.1f; // Mindestens über die Zellgrenze hinaus
-            float minDistanceSq = minDistance * minDistance;
-            
-            int attempts = 0;
-            do
+            if (axonX == 0 && axonY == 0 && axonZ == 0)
             {
-                axonX = (float)rand.NextDouble() * WorldSize;
-                axonY = (float)rand.NextDouble() * WorldSize;
-                axonZ = (float)rand.NextDouble() * WorldSize;
-                attempts++;
+                // Axon-Platzierung mit Mindestabstand            
+                float minDistance = voxelSize * 1.1f; // Mindestens über die Zellgrenze hinaus
+                float minDistanceSq = minDistance * minDistance;
+                
+                int attempts = 0;
+                do
+                {
+                    axonX = (float)rand.NextDouble() * WorldSize;
+                    axonY = (float)rand.NextDouble() * WorldSize;
+                    axonZ = (float)rand.NextDouble() * WorldSize;
+                    attempts++;
 
-                // Berechne Distanzquadrat zum Soma (Pos)
-                float dx = axonX - posX;
-                float dy = axonY - posY;
-                float dz = axonZ - posZ;
-                float distSq = dx * dx + dy * dy + dz * dz;
+                    // Berechne Distanzquadrat zum Soma (Pos)
+                    float dx = axonX - posX;
+                    float dy = axonY - posY;
+                    float dz = axonZ - posZ;
+                    float distSq = dx * dx + dy * dy + dz * dz;
 
-                // Wenn Abstand groß genug oder wir zu viele Versuche haben (Notbremse)
-                if (distSq >= minDistanceSq || attempts > 100)
-                    break;
+                    // Wenn Abstand groß genug oder wir zu viele Versuche haben (Notbremse)
+                    if (distSq >= minDistanceSq || attempts > 100)
+                        break;
 
-            } while (true);
+                } while (true);
+            }
 
             var state = new NeuronState
             {
                 ID = startIdx + i,
-                Threshold = 1,
+                Threshold = 3,
                 Energy = 1,
-                ConnectionRadius = 15.0f, 
+                ConnectionRadius = 5.0f, 
                 CanAutoFire = (layerType == "Hidden") ? (byte)1 : (byte)0,
                 MaxSynapseLimit = maxSynapses,
-                Type = (layerType == "Hidden") ? (rnd.NextDouble() > 0.8) ? (byte)1 : (byte)0 : (byte)0,
+                Type = (layerType == "Hidden") ? (rnd.NextDouble() > 0.8) ? (byte)1 : (byte)0 : (byte)2,
 
                 PosX = posX,
                 PosY = posY,
@@ -428,7 +453,14 @@ public class SnnModel : DisposableObject
                 // Rest der Initialisierung...
                 FirstSynapseIndex = -1,
                 CurrentSynapseCount = 0
-            };            
+            };
+
+            for (int k = 0; k < 15; k++)
+            {
+                state.CandidateIndices[k] = -1;
+                state.CandidateScores[k] = 0;
+            }
+
             World.AddComponents(entity, state);
         }
     }
@@ -506,7 +538,9 @@ public class SnnModel : DisposableObject
         this.WorldSize = gridDim * voxelSize; 
         
         // maxReach bleibt eine Funktion der Voxelgröße
-        this.MaxReachSq = (float)Math.Pow(voxelSize * 1.8f, 2);
+        //this.MaxReachSq = (float)Math.Pow(voxelSize * 1.8f, 2);
+        this.MaxReachSq = MathF.Pow(voxelSize * 0.66667f, 2);
+        //this.MaxReachSq = MathF.Pow(voxelSize, 2);
     }
 
     private int NextPowerOfTwo(int n)

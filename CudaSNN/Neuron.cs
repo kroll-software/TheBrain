@@ -29,8 +29,8 @@ public struct NeuronState : IComponent
     public int MaxSynapseLimit;     // Das Limit aus deiner Konfiguration
     public int NewSynapseCounter;
     // Die Rangliste der Kandidaten (festes Array für die GPU!)
-    public unsafe fixed int CandidateIndices[8]; // Top 8 Favoriten
-    public unsafe fixed int CandidateScores[8];  // Wie oft zusammen gefeuert
+    public unsafe fixed int CandidateIndices[16]; // Top 8 Favoriten
+    public unsafe fixed int CandidateScores[16];  // Wie oft zusammen gefeuert
     
     // Positionen
     public float PosX, PosY, PosZ;
@@ -38,7 +38,7 @@ public struct NeuronState : IComponent
 
     // Integers / Bytes    
 
-    public byte Type; // 0: Excitory, 1: Inhibitory
+    public byte Type; // 0: Excitory, 1: Inhibitory, 2: Input/Outpit-Layer
 
     public byte State; // 0: Idle, 1: Fire, 2: AutoFire
 

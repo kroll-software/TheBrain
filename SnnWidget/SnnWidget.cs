@@ -41,10 +41,10 @@ public class SnnWidget : Widget
 				new SummerGUI.SolidBrush(SolarizedColors.Yellow),
 				new SummerGUI.SolidBrush(SolarizedColors.Green),
 				new SummerGUI.SolidBrush(SolarizedColors.Cyan),
-				new SummerGUI.SolidBrush(SolarizedColors.Orange),
-				new SummerGUI.SolidBrush(SolarizedColors.Red),
+				new SummerGUI.SolidBrush(Color.FromArgb(128, SolarizedColors.Orange)),
+				new SummerGUI.SolidBrush(Color.FromArgb(128, SolarizedColors.Red)),
 				new SummerGUI.SolidBrush(SolarizedColors.Blue),
-				new SummerGUI.SolidBrush(SolarizedColors.Violet),
+				new SummerGUI.SolidBrush(Color.FromArgb(128, SolarizedColors.Violet)),
 				new SummerGUI.SolidBrush(SolarizedColors.Base2),
 				new SummerGUI.SolidBrush(SolarizedColors.Base3),
 				new SummerGUI.SolidBrush(BackColor),
@@ -69,29 +69,35 @@ public class SnnWidget : Widget
 
         float scaleX = bounds.Width / 640f;
         float scaleY = bounds.Height / 640f;
-        float pointSize = 3f;
+        float pointSize = 1.5f;
         
-        for (int i = 0; i < data.Length; i += 25)
+        for (int i = 0; i < data.Length; i += 1)
         {
             var n = data[i];
+            if (n.State == 0)   // idle
+                continue;
+
             SummerGUI.Brush brush;
             switch(n.State)
             {                
                 case 1:
-                    if (n.Type == 0)
-                        brush = Brushes[8];
+                    if (n.Type == 1)
+                        brush = Brushes[6];                    
                     else
-                        brush = Brushes[6];
+                        brush = Brushes[8];
+
+                    brush.Color = Color.FromArgb((byte)(255 * n.Output), brush.Color.R, brush.Color.G, brush.Color.B);
+                    
                     break;
                 case 2:
-                    if (n.Type == 0)
+                    if (n.Type == 1)
                         brush = Brushes[7];
                     else
                         brush = Brushes[4];
                     break;
                 default:
-                    if (n.Type == 0)
-                        brush = Brushes[11];
+                    if (n.Type == 1)
+                        brush = Brushes[11];                        
                     else
                         brush = Brushes[11];
                     break;
