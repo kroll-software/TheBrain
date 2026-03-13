@@ -51,8 +51,6 @@ To ensure smooth simulation and enough memory for the neural pool, **The Brain**
 ## 📋 Roadmap (WIP)
 
 - [ ] Refinement of Hebbian learning kernels.
-- [ ] Expansion of the custom widget hierarchy for better visualization.
-- [ ] Further optimization of the `WM_LBUTTONDOWN` activation fix.
 - [ ] API documentation for external training dataset ingestion.
 
 ---
