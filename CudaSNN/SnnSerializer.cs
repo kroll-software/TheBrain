@@ -139,7 +139,7 @@ public class SnnSerializer
 
     public void Save(string filePath, SnnModel model)
     {
-        SynapseData[] synapses = model.GetSynapses();
+        SynapseData[] synapses = model.Synapses.GetSynapses();
 
         // 1. Snapshot-Objekt füllen
         var snapshot = new ModelSnapshot {
@@ -199,10 +199,10 @@ public class SnnSerializer
             if (snapshot == null)
                 throw new Exception("Snapshot-Datei konnte nicht geladen werden.");
 
-            if (snapshot.Neurons.Length != model.NeuronCount)
+            if (snapshot.Neurons.Length != model.Neurons.NeuronCount)
                 throw new Exception(
                     $"Konfigurations-Mismatch: Snapshot enthält {snapshot.Neurons.Length} " +
-                    $"Neuronen, aber GPU erwartet {model.NeuronCount}.");
+                    $"Neuronen, aber GPU erwartet {model.Neurons.NeuronCount}.");
 
             // Iteration wiederherstellen
             model.Iteration = snapshot.Iteration;
@@ -211,7 +211,7 @@ public class SnnSerializer
             model.Neurons.DeviceBuffer.CopyFromCPU(snapshot.Neurons);
 
             // Synapsen laden (über neue Model-Funktion)
-            model.SetSynapses(snapshot.Synapses);            
+            model.Synapses.SetSynapses(snapshot.Synapses);            
         }        
     }
 

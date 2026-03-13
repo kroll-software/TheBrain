@@ -41,10 +41,10 @@ public class SnnWidget : Widget
 				new SummerGUI.SolidBrush(SolarizedColors.Yellow),
 				new SummerGUI.SolidBrush(SolarizedColors.Green),
 				new SummerGUI.SolidBrush(SolarizedColors.Cyan),
-				new SummerGUI.SolidBrush(Color.FromArgb(128, SolarizedColors.Orange)),
-				new SummerGUI.SolidBrush(Color.FromArgb(128, SolarizedColors.Red)),
+				new SummerGUI.SolidBrush(Color.FromArgb(180, SolarizedColors.Orange)),
+				new SummerGUI.SolidBrush(Color.FromArgb(180, SolarizedColors.Red)),
 				new SummerGUI.SolidBrush(SolarizedColors.Blue),
-				new SummerGUI.SolidBrush(Color.FromArgb(128, SolarizedColors.Violet)),
+				new SummerGUI.SolidBrush(Color.FromArgb(180, SolarizedColors.Violet)),
 				new SummerGUI.SolidBrush(SolarizedColors.Base2),
 				new SummerGUI.SolidBrush(SolarizedColors.Base3),
 				new SummerGUI.SolidBrush(BackColor),
@@ -101,7 +101,7 @@ public class SnnWidget : Widget
                     else
                         brush = Brushes[11];
                     break;
-            }            
+            }
             
             float drawX = bounds.Left + (n.PosX * scaleX);
             float drawY = bounds.Top + (n.PosY * scaleY);            
@@ -110,7 +110,7 @@ public class SnnWidget : Widget
             ctx.FillRectangle(brush, r);
         }
 
-        int synapseCount = SNN.GetDynamicSynapseCount();
+        int synapseCount = SNN.Synapses.GetDynamicSynapseCount();
         //RectangleF rstatus = new RectangleF(bounds.Left + 12, bounds.Top + 12, bounds.Width - 24, Font.LineHeight);
         //ctx.DrawString($"Iter: {SNN.Iteration:N0} | Synapses: {synapseCount:N0} | Book: {Path.GetFileName(Trainer.BookFile)}", Font, FontBrush, rstatus, FontFormat.DefaultSingleLine);        
 

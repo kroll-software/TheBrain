@@ -53,7 +53,7 @@ public struct NeuronState : IComponent
 
 
 [StructLayout(LayoutKind.Sequential, Pack = 4)]
-public struct NeuronRenderState
+public struct NeuronRenderState : IComponent
 {
     public byte Type;
     public byte State;

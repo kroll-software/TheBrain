@@ -50,7 +50,7 @@ public class BookTrainer
         int tokenCount = 0;
         int stepCount = 0;
 
-        int neuronCount = _model.NeuronCount;
+        int neuronCount = _model.Neurons.NeuronCount;
 
         while (true)
         {
