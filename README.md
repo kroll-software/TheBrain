@@ -35,8 +35,9 @@ To ensure smooth simulation and enough memory for the neural pool, **The Brain**
 ## 🛠 Tech Stack
 
 * **Language:** C#
-* **Graphics/Compute:** OpenTK (OpenGL/Compute Shaders)
-* **Serialization:** Newtonsoft.Json (Custom Converters for `unsafe fixed` memory layouts)
+* **Graphics/Compute:** OpenTK (OpenGL Graphics), ILGPU (Compute Shaders)
+* **Serialization:** Newtonsoft.Json (Custom Converters)
+* **GUI Framework:** SummerGUI
 * **IDE:** VS-Code
 
 ---
