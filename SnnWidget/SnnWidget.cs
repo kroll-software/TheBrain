@@ -111,8 +111,10 @@ public class SnnWidget : Widget
         }
 
         int synapseCount = SNN.GetDynamicSynapseCount();
-        RectangleF rstatus = new RectangleF(bounds.Left + 12, bounds.Top + 12, bounds.Width - 24, Font.LineHeight);
-        ctx.DrawString($"Iter: {SNN.Iteration:N0} | Synapses: {synapseCount:N0} | Book: {Path.GetFileName(Trainer.BookFile)}", Font, FontBrush, rstatus, FontFormat.DefaultSingleLine);
+        //RectangleF rstatus = new RectangleF(bounds.Left + 12, bounds.Top + 12, bounds.Width - 24, Font.LineHeight);
+        //ctx.DrawString($"Iter: {SNN.Iteration:N0} | Synapses: {synapseCount:N0} | Book: {Path.GetFileName(Trainer.BookFile)}", Font, FontBrush, rstatus, FontFormat.DefaultSingleLine);        
+
+        Program.MainWindow.ShowStatus($"Training...  Iter: {SNN.Iteration:N0} | Synapses: {synapseCount:N0} | Book: {Path.GetFileName(Trainer.BookFile)}", false);
 
         Invalidate();
     }

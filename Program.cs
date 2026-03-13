@@ -3,12 +3,13 @@ using System.IO;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Diagnostics;
+using System.Runtime.ConstrainedExecution; 
 using KS.Foundation;
 using SummerGUI;
 
 namespace TheBrain
 {
-    public class MainClass
+    class Program : CriticalFinalizerObject
     {        
         //public static MainForm MainWindow { get; private set; }
         public static ApplicationWindow MainWindow { get; private set; }
