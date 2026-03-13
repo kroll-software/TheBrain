@@ -9,7 +9,7 @@ Welcome to **The Brain**! This is an experimental, high-performance **Spiking Ne
 
 ## 🚀 Key Features
 
-* **GPU-First Architecture:** Utilizes **OpenTK 4.x** and **GLFW** to compute massive neural networks in parallel using Compute Shaders.
+* **GPU-First Architecture:** Utilizes **ILGPU** to compute massive neural networks in parallel using Compute Shaders.
 * **ECS-Inspired Design:** Efficient management of `NeuronState` and `SynapseData` structures to maximize performance for hundreds of thousands of neurons.
 * **Custom Serialization:** Robust, high-speed snapshotting via **Newtonsoft.Json**, featuring custom converters to handle C# `unsafe fixed` buffers efficiently.
 * **Cross-Platform:** Developed for **Ubuntu** and **Windows** using VS-Code.
