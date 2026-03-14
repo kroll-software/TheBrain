@@ -4,6 +4,7 @@ using KS.Foundation.ECS;
 using ILGPU;
 using ILGPU.Runtime;
 using ILGPU.Runtime.Cuda;
+using SummerGUI;
 
 
 namespace TheBrain.CudaSNN;
@@ -51,19 +52,27 @@ public class NeuronSystem : GpuSystem
         DeviceBuffer = accelerator.Allocate1D<NeuronState>(NeuronCount);
         // 3. Daten hochladen        
         DeviceBuffer.CopyFromCPU(components.ToArray());
-        Console.WriteLine($"{NeuronCount} Neuronen erfolgreich auf die GPU geladen.");
+        Console.WriteLine($"{NeuronCount} Neuronen erfolgreich auf die GPU geladen.");        
+
+        OnAfterLoad(components.ToArray(), accelerator);
+    }
+
+    public void OnAfterLoad(NeuronState[] neurons, Accelerator accelerator)
+    {
+        sortedNeuronIDs?.Dispose();
+        gridLookup?.Dispose();
 
         // Create other structures
         sortedNeuronIDs = accelerator.Allocate1D<int>(NeuronCount);
         gridLookup = accelerator.Allocate1D<int>(gridDim * gridDim * gridDim + 1);
         int[] sortedNeuronIDsCPU;
         int[] gridLookupCPU;
-        BuildGrid(components.ToArray(), gridDim, voxelSize,
+        BuildGrid(neurons, gridDim, voxelSize,
           out sortedNeuronIDsCPU,
           out gridLookupCPU);
         sortedNeuronIDs.CopyFromCPU(sortedNeuronIDsCPU);
         gridLookup.CopyFromCPU(gridLookupCPU);
-    }    
+    }
 
     public static void BuildGrid(
         NeuronState[] neurons,
