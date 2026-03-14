@@ -22,7 +22,7 @@ public class NeuronSystem : GpuSystem
     public float voxelSize { get; private set; }
     public float WorldSize { get; private set; }
     public float MaxReachSq { get; private set; }
-    public MemoryBuffer1D<int, Stride1D.Dense> gridLookup { get; private set; }
+    public MemoryBuffer1D<int, Stride1D.Dense> gridLookup { get; private set; }    
 
     public NeuronSystem()
     {

@@ -420,8 +420,9 @@ public static class SnnKernels {
         float learningRate)
     {        
         ref var receiver = ref neurons[index];
-        
-        //neurons[index].Debug = gridLookup[0];
+
+        if (receiver.State == 0)    // Quick exit
+            return;
 
         // 1. Bestimme mein Voxel (wo ist mein Soma?)
         int cx = (int)(receiver.PosX / voxelSize);
@@ -664,13 +665,13 @@ public static class SnnKernels {
         Index1D index,
         ArrayView1D<SynapseData, Stride1D.Dense> synapses,
         ArrayView1D<int, Stride1D.Dense> counter)
+    {
+        // Zugriff über das Feld 'Weight' in deinem SynapseData-Struct
+        if (synapses[index].Weight != 0.0f)
         {
-            // Zugriff über das Feld 'Weight' in deinem SynapseData-Struct
-            if (synapses[index].Weight != 0.0f)
-            {
-                Atomic.Add(ref counter[0], 1);
-            }
+            Atomic.Add(ref counter[0], 1);
         }
+    }
 }
 
 public static class NeuronKernels

@@ -415,7 +415,7 @@ public class SnnModel : DisposableObject
             Neurons.voxelSize,
             Neurons.MaxReachSq,
             LearningRate
-        );
+        );        
     }
 
     public float GetAverageSynapseWeight()
