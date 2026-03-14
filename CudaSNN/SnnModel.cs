@@ -384,14 +384,16 @@ public class SnnModel : DisposableObject
         var pulseKernel = m_KernelRegistry.GetKernel<Action<
             Index1D, 
             ArrayView1D<NeuronState, Stride1D.Dense>,
-            ArrayView1D<SynapseData, Stride1D.Dense>>>("ProcessPulses");
+            ArrayView1D<SynapseData, Stride1D.Dense>, 
+            byte>>("ProcessPulses");
 
         
         // Pulse werden direkt nach dem Update-Kernel in den gleichen Stream eingereiht
         pulseKernel(
             new Index1D(Neurons.NeuronCount), 
             Neurons.DeviceBuffer.View, 
-            Synapses.DeviceBuffer.View
+            Synapses.DeviceBuffer.View,
+            1   // 1: Training, 2: Inference
         );        
 
         // *** Hebb: What fires together, wires together                

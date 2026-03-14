@@ -142,28 +142,19 @@ public static class SnnKernels {
         n.Output = 1f;
 
         neurons[index] = n;
-    }
-
-    public static class GpuRandom
-    {
-        // Einfacher, schneller XorShift-Algorithmus
-        public static float GetRandom(int index, int seed)
-        {
-            uint state = (uint)(index ^ seed);
-            state ^= state << 13;
-            state ^= state >> 17;
-            state ^= state << 5;
-            // Konvertiere 0..uint.MaxValue zu 0.0f..1.0f
-            return (float)(state & 0x7FFFFFFF) / (float)int.MaxValue;
-        }
-    }
+    }    
 
     public static void ProcessPulses(
     Index1D index,
     ArrayView1D<NeuronState, Stride1D.Dense> neurons,
-    ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
+    ArrayView1D<SynapseData, Stride1D.Dense> synapsePool,
+    byte trainingMode   // 1: Training, 2: Inference
+    )
     {
         ref var n = ref neurons[index];
+
+        if (n.Type == 3 && trainingMode == 1)        
+            return;        
 
         const float leak = 0.96f;        
 
@@ -206,6 +197,20 @@ public static class SnnKernels {
         // Input integrieren
         n.Membrane += n.Input;
         n.Input = 0;        
+    }
+
+    public static class GpuRandom
+    {
+        // Einfacher, schneller XorShift-Algorithmus
+        public static float GetRandom(int index, int seed)
+        {
+            uint state = (uint)(index ^ seed);
+            state ^= state << 13;
+            state ^= state >> 17;
+            state ^= state << 5;
+            // Konvertiere 0..uint.MaxValue zu 0.0f..1.0f
+            return (float)(state & 0x7FFFFFFF) / (float)int.MaxValue;
+        }
     }
 
     public static void InitFirstSynapseBuffer(Index1D index, ArrayView1D<int, Stride1D.Dense> buffer)

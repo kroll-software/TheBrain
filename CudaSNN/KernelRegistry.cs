@@ -50,7 +50,8 @@ public class KernelRegistry
         _kernels["ProcessPulses"] = acc.LoadAutoGroupedStreamKernel<
             Index1D, 
             ArrayView1D<NeuronState, Stride1D.Dense>,
-            ArrayView1D<SynapseData, Stride1D.Dense>>(SnnKernels.ProcessPulses);            
+            ArrayView1D<SynapseData, Stride1D.Dense>, 
+            byte>(SnnKernels.ProcessPulses);            
 
         _kernels["CalculateWeightStatsKernel"] = acc.LoadAutoGroupedStreamKernel<
             Index1D, 
