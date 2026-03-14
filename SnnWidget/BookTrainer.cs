@@ -51,6 +51,7 @@ public class BookTrainer
         int stepCount = 0;
 
         int neuronCount = _model.Neurons.NeuronCount;
+        int delaySteps = 8;
 
         while (true)
         {
@@ -65,7 +66,7 @@ public class BookTrainer
                 foreach (var line in lines)
                 {
                     currentLine++;
-                    Progress = (int)((float)currentLine / lineCount  * 100f);
+                    Progress = (int)((float)currentLine / lineCount  * 1000f);
 
                     int[] tokenNeuronIds = Tokenizer.EncodeAndMap(line);
                     
@@ -74,20 +75,24 @@ public class BookTrainer
                         int tokenID = tokenNeuronIds[i];
                         int nextTokenID = tokenNeuronIds[i + 1];
                         // 1. Impuls geben
+                        // Input
                         _model.FireNeuron(tokenID);
-                        _model.FireNeuron(neuronCount - Tokenizer.VocabSize + nextTokenID);
-                        tokenCount++;
-                        
-                        // 2. Propagations-Phase
-                        // Wir simulieren hier z.B. 10 Steps pro Token, 
-                        // damit die Welle Zeit hat, sich auszubreiten.
-                        for (int k = 0; k < 1; k++) 
-                        {                            
-                            //_model.Step(1f, 1);
-                            _model.Step();  // use default parameters
+
+                        for (int k = 0; k < delaySteps; k++)
+                        {
+                            _model.Step();
                             Thread.Sleep(1);
                             stepCount++;
                         }
+
+                        // Target
+                        _model.FireNeuron(neuronCount - Tokenizer.VocabSize + nextTokenID);
+
+                        _model.Step();
+                        Thread.Sleep(1);
+                        stepCount++;
+
+                        tokenCount++;
 
                         /***
                         //float avgWeight = _model.GetAverageSynapseWeight();

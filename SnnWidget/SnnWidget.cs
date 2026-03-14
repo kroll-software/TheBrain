@@ -86,7 +86,7 @@ public class SnnWidget : Widget
                     else
                         brush = Brushes[8];
 
-                    brush.Color = Color.FromArgb((byte)(255 * n.Output), brush.Color.R, brush.Color.G, brush.Color.B);
+                    brush.Color = Color.FromArgb((byte)(255 * MathF.Min(1f, n.Output)), brush.Color.R, brush.Color.G, brush.Color.B);
                     
                     break;
                 case 2:

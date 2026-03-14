@@ -1,4 +1,5 @@
 using System;
+using System.Diagnostics;
 using ILGPU;
 using ILGPU.Runtime;
 using ILGPU.Runtime.Cuda;
@@ -197,9 +198,10 @@ public class SnnModel : DisposableObject
 
     private unsafe void CreateLayer(int count, int startIdx, string layerType, int layerIndex, BrainConfiguration config)
     {
-        Random rand = new Random();
+        var rand = Random.Shared;
 
         int maxSynapses = 0;
+
         switch (layerType)
         {
             case "Input":
@@ -213,100 +215,129 @@ public class SnnModel : DisposableObject
             case "Hidden":
                 maxSynapses = config.HiddenLayerMaxSynapses;
                 break;
-        }        
+        }
 
-        Random rnd = new Random();        
-        
-        // Einfache, gleichmäßige Verteilung im gesamten Würfel [0, WorldSize]
+        float worldSize = Neurons.WorldSize;
+
+        int hiddenCount = Math.Max(1, config.NumHiddenLayers);
+
+        float hiddenSpacing = worldSize / hiddenCount;
+
+        float layerStartY = 0;
+        float layerEndY = 0;
+        float nextLayerEndY = 0;
+
+        if (layerType == "Input")
+        {
+            layerStartY = 1;
+            layerEndY = 1;
+            nextLayerEndY = hiddenSpacing;
+        }
+        else if (layerType == "Output")
+        {
+            layerStartY = worldSize - 1;
+            layerEndY = worldSize - 1;
+            nextLayerEndY = worldSize - 1;
+        }
+        else
+        {
+            layerStartY = hiddenSpacing * (layerIndex - 1);
+            layerEndY = hiddenSpacing * layerIndex;
+
+            if (layerIndex == hiddenCount)
+                nextLayerEndY = worldSize - 1;
+            else
+                nextLayerEndY = hiddenSpacing * (layerIndex + 1);
+        }
+
+        int gridSize = (int)Math.Ceiling(Math.Sqrt(count));
+        float gridSpacing = worldSize / gridSize;
+
         for (int i = 0; i < count; i++)
         {
-            var entity = World.CreateEntity(Neurons);            
+            var entity = World.CreateEntity(Neurons);
 
-            float posX, posY, posZ;
-            float axonX = 0;
-            float  axonY = 0;
-            float axonZ = 0;
-            int neuronsPerRow = (int)Neurons.WorldSize;
+            float posX;
+            float posZ;
+
+            if (layerType == "Input" || layerType == "Output")
+            {
+                int gx = i % gridSize;
+                int gz = i / gridSize;
+
+                posX = gx * gridSpacing + gridSpacing * 0.5f;
+                posZ = gz * gridSpacing + gridSpacing * 0.5f;
+            }
+            else
+            {
+                posX = (float)(rand.NextDouble() * worldSize);
+                posZ = (float)(rand.NextDouble() * worldSize);
+            }
+
+            float posY;
+
+            if (layerType == "Input")
+                posY = 1;
+            else if (layerType == "Output")
+                posY = worldSize - 1;
+            else
+                posY = (float)(layerStartY + rand.NextDouble() * (layerEndY - layerStartY));
+
+            float axonX = (float)(rand.NextDouble() * worldSize);
+            float axonZ = (float)(rand.NextDouble() * worldSize);
+
+            float axonY;
+
+            if (layerType == "Output")
+            {
+                axonY = worldSize * 2f;
+            }
+            else
+            {
+                axonY = (float)(layerStartY + rand.NextDouble() * (nextLayerEndY - layerStartY));
+            }
+
+            byte neuronType = 0;
 
             switch (layerType)
             {
                 case "Input":
-                    // Platzierung oben: X verteilt sich, Y ist nah bei 0
-                    posX = i % neuronsPerRow; 
-                    posY = (i / neuronsPerRow) * 2.0f + 1f; // Mehrere Zeilen mit 2f Abstand
-                    posZ = (float)Neurons.WorldSize / 2f;
-
-                    axonX = posX;
-                    axonY = (float)rand.NextDouble() * Neurons.WorldSize / 2f;
-                    axonZ = (float)rand.NextDouble() * Neurons.WorldSize;
+                    neuronType = 2;
                     break;
 
                 case "Output":
-                    // Platzierung unten: X verteilt sich, Y ist nah bei WorldSize
-                    posX = i % neuronsPerRow;
-                    // Wir ziehen die Zeilen von der Unterkante nach oben ab
-                    posY = Neurons.WorldSize - ((i / neuronsPerRow) * 2.0f -1f); 
-                    posZ = (float)Neurons.WorldSize / 2f;
-
-                    axonX = posX;
-                    axonY = (Neurons.WorldSize / 2f) + ((float)rand.NextDouble() * Neurons.WorldSize / 2f);
-                    axonZ = (float)rand.NextDouble() * Neurons.WorldSize;
+                    neuronType = 3;
                     break;
 
-                default: // Hidden
-                    posX = (float)rand.NextDouble() * Neurons.WorldSize;
-                    posY = (float)rand.NextDouble() * Neurons.WorldSize;
-                    posZ = (float)rand.NextDouble() * Neurons.WorldSize;
+                default:
+                    neuronType = (rand.NextDouble() > 0.8) ? (byte)1 : (byte)0;
                     break;
-            }
-
-            if (axonX == 0 && axonY == 0 && axonZ == 0)
-            {
-                // Axon-Platzierung mit Mindestabstand            
-                //float minDistance = Neurons.voxelSize * 1.1f; // Mindestens über die Zellgrenze hinaus
-                float minDistance = Neurons.voxelSize * 3f; // Mindestens 3 Zellen Abstand
-                float minDistanceSq = minDistance * minDistance;
-                
-                int attempts = 0;
-                do
-                {
-                    axonX = (float)rand.NextDouble() * Neurons.WorldSize;
-                    axonY = (float)rand.NextDouble() * Neurons.WorldSize;
-                    axonZ = (float)rand.NextDouble() * Neurons.WorldSize;
-                    attempts++;
-
-                    // Berechne Distanzquadrat zum Soma (Pos)
-                    float dx = axonX - posX;
-                    float dy = axonY - posY;
-                    float dz = axonZ - posZ;
-                    float distSq = dx * dx + dy * dy + dz * dz;
-
-                    // Wenn Abstand groß genug oder wir zu viele Versuche haben (Notbremse)
-                    if (distSq >= minDistanceSq || attempts > 100)
-                        break;
-
-                } while (true);
             }
 
             var state = new NeuronState
             {
                 ID = startIdx + i,
-                Threshold = 3,
-                Energy = 1,
-                ConnectionRadius = 5.0f, 
-                CanAutoFire = (layerType == "Hidden") ? (byte)1 : (byte)0,
-                MaxSynapseLimit = maxSynapses,
-                Type = (layerType == "Hidden") ? (rnd.NextDouble() > 0.8) ? (byte)1 : (byte)0 : (byte)2,
 
                 PosX = posX,
                 PosY = posY,
                 PosZ = posZ,
-                
+
                 AxonX = axonX,
                 AxonY = axonY,
                 AxonZ = axonZ,
-                
-                // Rest der Initialisierung...
+
+                Membrane = 0,
+                Threshold = 3f,
+                Energy = 1,
+
+                ConnectionRadius = 5.0f,
+
+                CanAutoFire = (layerType == "Hidden") ? (byte)1 : (byte)0,
+
+                MaxSynapseLimit = maxSynapses,
+
+                Type = neuronType,
+
                 FirstSynapseIndex = -1,
                 CurrentSynapseCount = 0
             };

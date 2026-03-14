@@ -95,8 +95,8 @@ namespace TheBrain
 			SNN.BuildNetwork(new BrainConfiguration{				
 				NumInputClasses = trainer.Tokenizer.VocabSize,
 				NumInputClassNeurons = 1,
-				NumHiddenLayers = 1,
-				NeuronsPerHiddenLayer = trainer.Tokenizer.VocabSize * 8,
+				NumHiddenLayers = 8,
+				NeuronsPerHiddenLayer = trainer.Tokenizer.VocabSize,
 				HiddenLayerMaxSynapses = 512,
 				NumOutputClasses = trainer.Tokenizer.VocabSize,
 				NumOutputClassNeurons = 1,

@@ -14,7 +14,7 @@ namespace TheBrain.CudaSNN;
 public struct NeuronState : IComponent
 {
     public int ID;
-    // Floats
+    public float Membrane;
     public float Input;
     public float Output;
     public float Threshold;

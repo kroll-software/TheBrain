@@ -6,6 +6,8 @@ using KS.Foundation.ECS;
 using ILGPU;
 using ILGPU.Algorithms;
 using ILGPU.Runtime;
+using System.Dynamic;
+using ILGPU.IR.Values;
 
 namespace TheBrain.CudaSNN;
 
@@ -25,7 +27,7 @@ public static class SnnKernels {
         // Energy Recovery
         // --------------------------------------------------
 
-        if (n.Type == 2)
+        if (n.Type > 1)
             n.Energy = 1f;
         else
             n.Energy = Math.Min(1.0f, n.Energy + energyRecoveryRate);
@@ -54,18 +56,28 @@ public static class SnnKernels {
                 default: spike = 0f; break;
             }
 
-            // Vorzeichen für inhibitory
-            if (n.Type == 1)
-                spike = -spike;
+            switch (n.Type)
+            {
+                case 1: // Inhibitory
+                    spike = -spike;
+                    break;
+                case 2: // Input Layer
+                    spike *= n.Threshold * 3f;
+                    break;
+                case 3: // Output Layer
+                    spike *= n.Membrane;
+                    break;
+                default:
+                    break;
+            }                
 
             n.Output = spike;
 
             n.Energy -= 0.1f;
-
             n.FireCycle++;
 
-            if (n.FireCycle >= fireCycleDuration || (n.Type == 2 && n.FireCycle > 1))
-            //if (n.FireCycle >= fireCycleDuration)
+            //if (n.FireCycle >= fireCycleDuration || (n.Type == 2 && n.FireCycle > 1))
+            if (n.FireCycle >= fireCycleDuration)
             {
                 n.State = 0;
                 n.FireCycle = 0;
@@ -79,7 +91,8 @@ public static class SnnKernels {
 
         else if (n.State == 0 && n.Energy > 0.3f)
         {
-            bool triggerNormal = n.Input >= n.Threshold;
+            //bool triggerNormal = n.Input >= n.Threshold;
+            bool triggerNormal = n.Membrane >= n.Threshold;
 
             float randomVal = GpuRandom.GetRandom(index, globalSeed);
             bool triggerAuto = n.CanAutoFire == 1 && randomVal < 0.0001f;
@@ -87,13 +100,11 @@ public static class SnnKernels {
             if (triggerNormal || triggerAuto)
             {
                 n.State = triggerNormal ? (byte)1 : (byte)2;
-                n.FireCycle = 0;
-
-                //float spike = (n.Type == 1) ? -1f : 1f;
-                //n.Output = spike;
+                n.FireCycle = 0;                
 
                 n.Output = 0;
                 n.Input = 0;
+                n.Membrane = 0;
 
                 n.ShortTermExcitement += 0.1f;
                 n.LongTermExcitement += 0.001f;
@@ -121,7 +132,8 @@ public static class SnnKernels {
 
         var n = neurons[index];
 
-        n.Input = input;
+        n.Input = 0;
+        n.Membrane = input;
         n.Energy = energy;
 
         n.State = 1;
@@ -147,43 +159,53 @@ public static class SnnKernels {
     }
 
     public static void ProcessPulses(
-        Index1D index, 
-        ArrayView1D<NeuronState, Stride1D.Dense> neurons,
-        ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
+    Index1D index,
+    ArrayView1D<NeuronState, Stride1D.Dense> neurons,
+    ArrayView1D<SynapseData, Stride1D.Dense> synapsePool)
     {
-        // Wir arbeiten direkt auf dem Speicher
-        ref var n = ref neurons[index];        
-        //var n = neurons[index];        
+        ref var n = ref neurons[index];
 
-        //n.Debug = 13;
-        
+        const float leak = 0.96f;        
+
         float accumulatedPotential = 0;
         int currentSynapseIdx = n.FirstSynapseIndex;
 
-        // 1. Sammle Energie von allen verbundenen Vorgängern (Pull)        
+        // =========================================
+        // 1. Sammle Energie von Vorgängern
+        // =========================================
+
         while (true)
         {
             if (currentSynapseIdx == -1 || currentSynapseIdx >= synapsePool.Length)
                 break;
 
             var synapse = synapsePool[currentSynapseIdx];
-            
-            // Wir holen uns den aktuellen Ladungszustand des Senders (Vorgängers)
-            // Nur wenn der Sender ein Potential > 0 hat, fließt etwas
+
             float sourcePotential = neurons[synapse.SourceNeuronIdx].Output;
-            
+
             if (sourcePotential > 0)
-            {                                
-                // Die Energieübertragung hängt vom Gewicht der Synapse ab
+            {
                 accumulatedPotential += sourcePotential * synapse.Weight;
-                //accumulatedPotential += sourcePotential;
             }
-            
+
             currentSynapseIdx = synapse.NextIndex;
         }
 
-        // 2. Integration: Das gesammelte Potential zum eigenen hinzufügen
+        // =========================================
+        // 2. Integration
+        // =========================================
+
         n.Input += accumulatedPotential;        
+
+        // =========================================
+        // 4. Membrane Leak
+        // =========================================
+
+        n.Membrane *= leak;
+
+        // Input integrieren
+        n.Membrane += n.Input;
+        n.Input = 0;        
     }
 
     public static void InitFirstSynapseBuffer(Index1D index, ArrayView1D<int, Stride1D.Dense> buffer)
