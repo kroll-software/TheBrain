@@ -15,6 +15,7 @@ models/*
 .vscode/
 .history/
 *.code-workspace
+*.csproj.lscache
 
 # --- User-spezifische Dateien ---
 *.user

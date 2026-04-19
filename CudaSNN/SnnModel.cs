@@ -28,7 +28,8 @@ public class SnnModel : DisposableObject
 
     public RenderingSystem Renderer { get; private set; } 
 
-    public float LearningRate { get; set; } = 0.005f;
+    //public float LearningRate { get; set; } = 0.005f;
+    public float LearningRate { get; set; } = 0.01f;
 
     private readonly KernelRegistry m_KernelRegistry;
 

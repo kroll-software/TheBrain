@@ -41,9 +41,9 @@ public class SnnEnsembleWidgetStyle : WidgetStyle
 			this.FixedPanel = SplitterFixedPanel.Panel2;			
 		}
 
-        public override void Initialize()
+        public override void Initialize(IGUIContext ctx)
         {
-            base.Initialize();
+            base.Initialize(ctx);
         }
         
 		public override bool OnKeyDown (KeyboardKeyEventArgs e)
