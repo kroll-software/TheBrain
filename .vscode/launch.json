@@ -1,0 +1,50 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    // --- LINUX ---
+    {
+      "name": "Linux (Debug)",
+      "type": "coreclr", "request": "launch",
+      "preLaunchTask": "Build Debug Linux",
+      "program": "${workspaceFolder}/bin/Debug/net10.0/linux-x64/TheBrain.dll",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Linux (Release)",
+      "type": "coreclr", "request": "launch",
+      "preLaunchTask": "Build Release Linux",
+      "program": "${workspaceFolder}/bin/Release/net10.0/linux-x64/TheBrain.dll",
+      "cwd": "${workspaceFolder}"
+    },
+    // --- WINDOWS ---
+    {
+      "name": "Windows (Debug)",
+      "type": "coreclr", "request": "launch",
+      "preLaunchTask": "Build Debug Windows",
+      "program": "${workspaceFolder}/bin/Debug/net10.0/win-x64/TheBrain.dll",
+      "cwd": "${workspaceFolder}"      
+    },
+    {
+      "name": "Windows (Release)",
+      "type": "coreclr", "request": "launch",
+      "preLaunchTask": "Build Release Windows",
+      "program": "${workspaceFolder}/bin/Release/net10.0/TheBrain.dll",
+      "cwd": "${workspaceFolder}",      
+    },
+    // --- MAC ---
+    {
+      "name": "Mac (Debug)",
+      "type": "coreclr", "request": "launch",
+      "preLaunchTask": "Build Debug Mac",
+      "program": "${workspaceFolder}/bin/Debug/net10.0/osx-arm64/TheBrain.dll",
+      "cwd": "${workspaceFolder}"
+    },
+    {
+      "name": "Mac (Release)",
+      "type": "coreclr", "request": "launch",
+      "preLaunchTask": "Build Release Mac",
+      "program": "${workspaceFolder}/bin/Release/net10.0/osx-arm64/TheBrain.dll",
+      "cwd": "${workspaceFolder}"
+    }
+  ]
+}

@@ -1,0 +1,74 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    // --- LINUX ---
+    {
+      "label": "Build Debug Linux",
+      "command": "dotnet", "type": "process",
+      "args": [
+        "build", 
+        "${workspaceFolder}/TheBrain.csproj",
+        "-c", "Debug", 
+        "-r", "linux-x64", 
+        "--self-contained", "false"
+      ],
+    },
+    {
+      "label": "Build Release Linux",
+      "command": "dotnet", "type": "process",      
+      "args": [
+        "build", 
+        "${workspaceFolder}/TheBrain.csproj",
+        "-c", "Release", 
+        "-r", "linux-x64", 
+        "--self-contained", "true"
+      ],
+    },
+    // --- WINDOWS ---
+    {
+      "label": "Build Debug Windows",
+      "command": "dotnet", "type": "process",      
+      "args": [
+        "build", 
+        "${workspaceFolder}/TheBrain.csproj",
+        "-c", "Debug", 
+        "-r", "win-x64", 
+        "--self-contained", "false"
+      ],
+    },
+    {
+      "label": "Build Release Windows",
+      "command": "dotnet", "type": "process",
+      "args": [
+        "build", 
+        "${workspaceFolder}/TheBrain.csproj",
+        "-c", "Release", 
+        "-r", "win-x64", 
+        "--self-contained", "true"
+      ],
+    },
+    // --- MAC (ARM/M-Chips) ---
+    {
+      "label": "Build Debug Mac",
+      "command": "dotnet", "type": "process",      
+      "args": [
+        "build", 
+        "${workspaceFolder}/TheBrain.csproj",
+        "-c", "Debug", 
+        "-r", "osx-arm64", 
+        "--self-contained", "false"
+      ],
+    },
+    {
+      "label": "Build Release Mac",
+      "command": "dotnet", "type": "process",
+      "args": [
+        "build", 
+        "${workspaceFolder}/TheBrain.csproj",
+        "-c", "Release", 
+        "-r", "osx-arm64", 
+        "--self-contained", "true"
+      ],
+    }
+  ]
+}
